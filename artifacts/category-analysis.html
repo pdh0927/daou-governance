@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상품 카테고리 분석 | 다우거버넌스</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 font-[Pretendard]">
+<div class="max-w-4xl mx-auto p-8">
+  <div class="flex items-center gap-3 mb-6">
+    <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700">분석 아티팩트</span>
+    <div>
+      <h1 class="text-2xl font-bold">상품 카테고리 분석</h1>
+      <p class="text-sm text-gray-500">사방넷 | 12개 플랫폼별 카테고리 매핑 데이터셋 | 최종 업데이트: 2026-06-05</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl border p-4 text-center">
+      <div class="text-2xl font-bold text-teal-600">12</div>
+      <div class="text-xs text-gray-500">분석 플랫폼</div>
+    </div>
+    <div class="bg-white rounded-xl border p-4 text-center">
+      <div class="text-2xl font-bold text-teal-600">91.2%</div>
+      <div class="text-xs text-gray-500">평균 매칭률</div>
+    </div>
+    <div class="bg-white rounded-xl border p-4 text-center">
+      <div class="text-2xl font-bold text-green-500">8</div>
+      <div class="text-xs text-gray-500">90%+ 플랫폼</div>
+    </div>
+    <div class="bg-white rounded-xl border p-4 text-center">
+      <div class="text-2xl font-bold text-orange-500">2</div>
+      <div class="text-xs text-gray-500">85% 미만</div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border overflow-hidden mb-6">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-gray-50 text-left text-xs text-gray-500">
+          <th class="px-4 py-3 font-medium">플랫폼</th>
+          <th class="px-4 py-3 font-medium">카테고리 체계</th>
+          <th class="px-4 py-3 font-medium">매칭률</th>
+          <th class="px-4 py-3 font-medium">상태</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        <tr><td class="px-4 py-3 font-medium">네이버 스마트스토어</td><td class="px-4 py-3 text-gray-600">패션의류 > 여성의류 > 원피스</td><td class="px-4 py-3 font-bold text-green-600">94.2%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">쿠팡</td><td class="px-4 py-3 text-gray-600">패션잡화 > 여성가방</td><td class="px-4 py-3 font-bold text-green-600">91.8%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">11번가</td><td class="px-4 py-3 text-gray-600">여성의류 > 블라우스/셔츠</td><td class="px-4 py-3 font-bold text-green-600">89.5%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">무신사</td><td class="px-4 py-3 text-gray-600">상의 > 반팔 티셔츠</td><td class="px-4 py-3 font-bold text-green-600">92.1%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">카카오톡스토어</td><td class="px-4 py-3 text-gray-600">의류 > 여성</td><td class="px-4 py-3 font-bold text-orange-500">87.3%</td><td class="px-4 py-3"><span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">주의</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">에이블리</td><td class="px-4 py-3 text-gray-600">상의 > 니트/스웨터</td><td class="px-4 py-3 font-bold text-green-600">93.4%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">지그재그</td><td class="px-4 py-3 text-gray-600">아우터 > 자켓</td><td class="px-4 py-3 font-bold text-green-600">90.7%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">브랜디</td><td class="px-4 py-3 text-gray-600">여성의류 > 팬츠</td><td class="px-4 py-3 font-bold text-green-600">91.0%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">위메프</td><td class="px-4 py-3 text-gray-600">패션 > 여성의류</td><td class="px-4 py-3 font-bold text-orange-500">84.1%</td><td class="px-4 py-3"><span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">주의</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">인터파크</td><td class="px-4 py-3 text-gray-600">패션/뷰티 > 여성의류</td><td class="px-4 py-3 font-bold text-green-600">90.2%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">G마켓</td><td class="px-4 py-3 text-gray-600">패션의류 > 여성의류</td><td class="px-4 py-3 font-bold text-green-600">92.5%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+        <tr><td class="px-4 py-3 font-medium">옥션</td><td class="px-4 py-3 text-gray-600">패션의류 > 여성의류</td><td class="px-4 py-3 font-bold text-green-600">91.6%</td><td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">정상</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="text-xs text-gray-400 text-center">다우거버넌스 공유 라이브러리 | 사방넷 | 작성자: 박준호</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상품 정보고시 자동 생성 | 다우거버넌스</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 font-[Pretendard]">
+<div class="max-w-3xl mx-auto p-8">
+  <div class="flex items-center gap-3 mb-6">
+    <span class="text-xs font-bold px-2 py-1 rounded-full bg-teal-100 text-teal-700">서비스</span>
+    <div>
+      <h1 class="text-2xl font-bold">상품 정보고시 자동 생성</h1>
+      <p class="text-sm text-gray-500">사방넷 | 상품명 입력 시 12개 쇼핑몰 정보고시 양식 자동 작성</p>
+    </div>
+  </div>
+
+  <!-- 사용 영역 -->
+  <div class="bg-white rounded-xl border p-6 mb-6">
+    <div class="text-sm font-bold mb-4">상품 정보고시 생성</div>
+    <div class="space-y-4">
+      <div>
+        <label class="text-sm font-medium text-gray-700 block mb-1">상품명</label>
+        <input type="text" value="여성 오버핏 반팔 티셔츠" class="w-full border rounded-lg px-4 py-3 text-sm bg-gray-50">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-sm font-medium text-gray-700 block mb-1">카테고리</label>
+          <select class="w-full border rounded-lg px-4 py-3 text-sm bg-gray-50">
+            <option selected>여성의류 > 상의 > 티셔츠</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-gray-700 block mb-1">소재</label>
+          <input type="text" value="면 95%, 스판덱스 5%" class="w-full border rounded-lg px-4 py-3 text-sm bg-gray-50">
+        </div>
+      </div>
+      <button class="w-full bg-teal-500 hover:bg-teal-600 text-white px-4 py-3 rounded-lg text-sm font-medium">생성하기</button>
+    </div>
+  </div>
+
+  <!-- 생성 결과 -->
+  <div class="bg-white rounded-xl border p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <div class="text-sm font-bold">생성 결과</div>
+      <div class="flex gap-2">
+        <button class="text-xs border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50">전체 복사</button>
+        <button class="text-xs bg-teal-500 text-white px-3 py-1.5 rounded-lg">쇼핑몰에 등록</button>
+      </div>
+    </div>
+    <div class="space-y-3">
+      <div class="border rounded-lg p-4">
+        <div class="text-sm font-bold mb-2">네이버 스마트스토어</div>
+        <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+          <div><span class="text-gray-400">종류:</span> 티셔츠</div>
+          <div><span class="text-gray-400">소재:</span> 면 95%, 스판덱스 5%</div>
+          <div><span class="text-gray-400">색상:</span> 상품 상세 참조</div>
+          <div><span class="text-gray-400">사이즈:</span> S/M/L/XL</div>
+          <div><span class="text-gray-400">제조자:</span> (입력 필요)</div>
+          <div><span class="text-gray-400">제조국:</span> (입력 필요)</div>
+          <div><span class="text-gray-400">세탁방법:</span> 단독세탁 권장, 30도 이하</div>
+          <div><span class="text-gray-400">취급시 주의사항:</span> 표백제 사용 금지</div>
+        </div>
+      </div>
+      <div class="border rounded-lg p-4">
+        <div class="text-sm font-bold mb-2">쿠팡</div>
+        <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+          <div><span class="text-gray-400">품명:</span> 여성 오버핏 반팔 티셔츠</div>
+          <div><span class="text-gray-400">소재:</span> 면 95%, 스판덱스 5%</div>
+          <div><span class="text-gray-400">사이즈:</span> FREE(S~XL)</div>
+          <div><span class="text-gray-400">제조자:</span> (입력 필요)</div>
+        </div>
+      </div>
+      <div class="border rounded-lg p-4">
+        <div class="text-sm font-bold mb-2">11번가</div>
+        <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+          <div><span class="text-gray-400">의류 종류:</span> 반팔 티셔츠</div>
+          <div><span class="text-gray-400">혼용률:</span> 면 95%, 스판덱스 5%</div>
+          <div><span class="text-gray-400">치수:</span> 상세 이미지 참조</div>
+          <div><span class="text-gray-400">제조국:</span> (입력 필요)</div>
+        </div>
+      </div>
+    </div>
+    <div class="text-xs text-gray-400 mt-3">... 외 9개 쇼핑몰 정보고시 생성 완료</div>
+  </div>
+
+  <div class="text-xs text-gray-400 text-center">다우거버넌스 공유 라이브러리 | 사방넷 | 작성자: 김민수</div>
+</div>
+</body>
+</html>

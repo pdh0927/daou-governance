@@ -1,0 +1,2363 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>다우거버넌스 — AI 거버넌스 관리 플랫폼</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Noto Sans KR', 'Pretendard', 'sans-serif'] },
+      colors: {
+        /* 다우오피스 실제 브랜드 틸/시안 (레퍼런스 화면에서 샘플링: 메인 #00A0C0) */
+        primary: { 50:'#E4F6FA', 100:'#BFE9F1', 200:'#8BD7E5', 300:'#4DC3D8', 400:'#1AAECB', 500:'#00A0C0', 600:'#008BA8', 700:'#00738C', 800:'#005C70', 900:'#004B5C' },
+      },
+      borderRadius: {
+        none:'0', sm:'3px', DEFAULT:'4px', md:'4px', lg:'6px', xl:'6px', '2xl':'8px', '3xl':'10px', full:'9999px'
+      }
+    }
+  }
+}
+</script>
+<style>
+  [x-cloak] { display: none !important; }
+  body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; letter-spacing: -0.01em; }
+  .demo-overlay { position: fixed; inset: 0; background: rgba(17,24,39,0.45); backdrop-filter: blur(1px); z-index: 40; }
+  .demo-highlight { display: none; }
+  .demo-desc { position: fixed; z-index: 46; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  /* 상태색 — 블루 톤과 조화되는 의미색 (고/중/저위험) */
+  .risk-high { border-left: 3px solid #E5484D; }
+  .risk-mid  { border-left: 3px solid #EF8C2C; }
+  .risk-low  { border-left: 3px solid #1F9D57; }
+  /* 다우오피스 섹션 헤더 — 블루 액센트 바 */
+  .section-label { font-size: 13px; font-weight: 700; color: #374151; display: flex; align-items: center; gap: 8px; }
+  .section-label::before { content: ''; display: inline-block; width: 3px; height: 13px; background: #00A0C0; border-radius: 2px; }
+  /* 다우오피스 스타일 스크롤바 */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #D5DAE0; border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #BCC3CC; background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body class="bg-[#F4F5F7] font-sans text-gray-900" x-data="app()">
+
+
+
+<!-- 시연: 블러 오버레이 -->
+<div x-show="activeTip" x-cloak @click="closeTip()" class="demo-overlay cursor-pointer"></div>
+
+
+<!-- 시연: 설명 박스 (블러 오버레이 위, 하단 고정) -->
+<template x-if="activeTip">
+  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 demo-desc" @click.stop>
+    <div class="bg-gray-900/95 text-white rounded-2xl shadow-2xl px-8 py-5 max-w-lg backdrop-blur-sm border border-white/10">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center text-white font-bold text-sm" x-text="activeTip.num"></div>
+        <h3 class="font-bold text-lg" x-text="activeTip.title"></h3>
+        <button @click="closeTip()" class="ml-auto text-gray-400 hover:text-white text-lg">×</button>
+      </div>
+      <p class="text-sm text-gray-300 leading-relaxed" x-html="activeTip.desc"></p>
+    </div>
+  </div>
+</template>
+
+<!-- 레이아웃 -->
+<div class="flex h-screen">
+
+  <!-- 사이드바 -->
+  <aside class="w-56 bg-white border-r border-gray-200 flex flex-col">
+    <div class="px-4 py-4 border-b border-gray-100 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-[11px] bg-primary-500 flex items-center justify-center text-white font-bold text-[15px] tracking-[0.03em] flex-shrink-0 shadow-sm">DG</div>
+      <div class="leading-tight">
+        <div class="text-[16px] font-bold text-gray-900 tracking-[-0.01em]">다우거버넌스</div>
+        <div class="text-[10px] text-gray-400 mt-0.5 tracking-[0.04em]">AI Governance Platform</div>
+      </div>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-1">
+      <template x-for="item in nav" :key="item.id">
+        <div>
+          <div x-show="item.section" class="px-3 pt-5 pb-2 text-[11px] font-bold text-primary-700 uppercase tracking-wider flex items-center gap-2">
+            <div class="w-1.5 h-4 bg-primary-500 rounded-full"></div>
+            <span x-text="item.label"></span>
+          </div>
+          <button x-show="!item.section" @click="currentTab=item.id" @dblclick="showTip($event, item.tip)"
+            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            :class="currentTab===item.id ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50'">
+            <span x-text="item.icon"></span>
+            <span x-text="item.label"></span>
+            <span x-show="item.badge" class="ml-auto bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full" x-text="item.badge"></span>
+          </button>
+        </div>
+      </template>
+    </nav>
+    <!-- 모드 토글 -->
+    <div class="px-3 py-3 border-t border-gray-100">
+      <div class="text-[10px] text-gray-400 mb-2 px-2">모드</div>
+      <div class="flex items-center gap-2 px-2">
+        <span class="text-xs font-medium" :class="demoMode ? 'text-gray-400' : 'text-primary-700'">사용</span>
+        <button @click="demoMode = !demoMode" class="relative w-10 h-5 rounded-full transition-colors" :class="demoMode ? 'bg-primary-500' : 'bg-gray-300'">
+          <div class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" :class="demoMode ? 'translate-x-5' : 'translate-x-0.5'"></div>
+        </button>
+        <span class="text-xs font-medium" :class="demoMode ? 'text-primary-700' : 'text-gray-400'">시연</span>
+      </div>
+    </div>
+    <!-- 팀 전환 -->
+    <div class="px-3 py-3 border-t border-gray-100">
+      <div class="text-[10px] text-gray-400 mb-2 px-2">현재 접속</div>
+      <select x-model="currentTeam" @change="currentTab = currentTeam==='AX기획' ? 'inventory' : 'myInventory'; closeTip()" class="w-full border rounded-lg px-2 py-1.5 text-xs bg-gray-50">
+        <option value="AX기획">박동환 (Admin)</option>
+        <option value="사방넷">김민수 (User)</option>
+      </select>
+    </div>
+  </aside>
+
+  <!-- 메인 -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- 다우오피스 스타일 상단 앱바 -->
+    <header class="h-14 bg-white border-b border-gray-200 flex items-center px-5 gap-4 flex-shrink-0 z-20">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <span class="text-[15px] font-bold text-gray-800 truncate" x-text="({inventory:'AI 대시보드', audit:'AI 검수 센터', kb:'Knowledge Base', library:'공유 라이브러리', gptDash:'다우GPT 사용 현황', myInventory:currentTeam+' AI 현황', myWorkAI:currentTeam+' 업무 AI', kbChat:'다우GPT', workInventory:'업무 AI 대시보드'})[currentTab] || '다우거버넌스'"></span>
+        <span class="text-[11px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5 hidden lg:inline">Portal</span>
+      </div>
+      <div class="ml-auto flex items-center gap-1.5">
+        <!-- 통합검색 -->
+        <div class="hidden md:flex items-center gap-2 bg-gray-100 rounded px-3 h-9 w-60 focus-within:bg-white focus-within:ring-1 focus-within:ring-primary-300 transition-colors">
+          <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M21 21l-3.5-3.5"/></svg>
+          <input type="text" placeholder="통합검색" class="bg-transparent text-sm flex-1 outline-none placeholder-gray-400 min-w-0">
+        </div>
+        <button class="w-9 h-9 rounded hover:bg-gray-100 flex items-center justify-center text-gray-500 relative" title="알림">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+        </button>
+        <button class="w-9 h-9 rounded hover:bg-gray-100 flex items-center justify-center text-gray-500" title="설정">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" stroke-width="1.8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 008.8 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H2a2 2 0 110-4h.09A1.65 1.65 0 004.6 8.8a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V2a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.2.61.78 1.04 1.51 1.04H22a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        </button>
+        <button class="w-9 h-9 rounded hover:bg-gray-100 flex items-center justify-center text-gray-500" title="앱">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="5" r="1.8"/><circle cx="12" cy="5" r="1.8"/><circle cx="19" cy="5" r="1.8"/><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/><circle cx="5" cy="19" r="1.8"/><circle cx="12" cy="19" r="1.8"/><circle cx="19" cy="19" r="1.8"/></svg>
+        </button>
+        <div class="w-px h-6 bg-gray-200 mx-1"></div>
+        <div class="flex items-center gap-2 pl-0.5">
+          <div class="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[13px] font-bold" x-text="({'AX기획':'박','사방넷':'김','뿌리오':'이','다우오피스':'정'})[currentTeam] || '나'"></div>
+          <span class="text-sm font-medium text-gray-700 hidden lg:inline" x-text="({'AX기획':'박동환','사방넷':'김민수','뿌리오':'이하늘','다우오피스':'정수현'})[currentTeam]"></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 스크롤 영역 -->
+    <div class="flex-1 overflow-auto">
+
+    <!-- AI 대시보드 (통합) -->
+    <div x-show="currentTab==='inventory'" class="p-6" x-data="{ dashView:'product' }" @dblclick.self="showTipFor('aiCardList', tips.card)">
+      <!-- 헤더 -->
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+          <h1 class="text-2xl font-bold">AI 대시보드</h1>
+          <div class="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+            <button @click="dashView='product'" class="px-3 py-1 rounded-md text-xs font-medium" :class="dashView==='product' ? 'bg-white shadow text-primary-700' : 'text-gray-500'">제품 AI</button>
+            <button @click="dashView='work'" class="px-3 py-1 rounded-md text-xs font-medium" :class="dashView==='work' ? 'bg-white shadow text-primary-700' : 'text-gray-500'">업무 AI</button>
+          </div>
+        </div>
+        <div class="text-xs text-gray-400 bg-gray-100 px-3 py-2 rounded-lg">Git push / 호스팅 시 자동 등록</div>
+      </div>
+
+      <!-- 제품 AI 뷰 -->
+      <div x-show="dashView==='product'">
+      <!-- 요약 카드 -->
+      <div class="grid grid-cols-5 gap-4 mb-6" @dblclick="showTip($event, tips.summary)">
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">전체 AI</div>
+          <div class="text-2xl font-bold text-gray-900">16</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">고위험</div>
+          <div class="text-2xl font-bold text-red-500">2</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">검수 필요</div>
+          <div class="text-2xl font-bold text-orange-500">3</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">규제 미통과</div>
+          <div class="text-2xl font-bold text-red-500">2</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">정보 보완 필요</div>
+          <div class="text-2xl font-bold text-blue-500">1</div>
+        </div>
+      </div>
+
+      <!-- 필터 -->
+      <div class="flex items-center gap-3 mb-4" @dblclick.self="showTipFor('aiCardList', tips.card)">
+        <select class="border rounded-lg px-3 py-2 text-sm bg-white" x-model="filterTeam">
+          <option value="all">전체 서비스</option>
+          <option value="사방넷">사방넷</option>
+          <option value="뿌리오">뿌리오</option>
+          <option value="다우오피스">다우오피스</option>
+        </select>
+        <select class="border rounded-lg px-3 py-2 text-sm bg-white" x-model="filterRisk">
+          <option value="all">전체 등급</option>
+          <option value="고위험">고위험</option>
+          <option value="중위험">중위험</option>
+          <option value="저위험">저위험</option>
+        </select>
+        <input type="text" placeholder="AI 이름 검색..." class="border rounded-lg px-3 py-2 text-sm flex-1" x-model="searchQuery">
+      </div>
+
+      <!-- AI 카드 리스트 -->
+      <div class="space-y-3" id="aiCardList" @dblclick.self="showTipFor('aiCardList', tips.card)">
+        <template x-for="ai in filteredAIs" :key="ai.name">
+          <div @click="selectedAI=ai; showDetail=true"
+            class="bg-white rounded-xl border hover:shadow-md transition-shadow cursor-pointer p-4"
+            :class="ai.risk==='고위험' ? 'risk-high' : ai.risk==='중위험' ? 'risk-mid' : 'risk-low'">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-4">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-base" x-text="ai.name"></span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      :class="ai.risk==='고위험' ? 'bg-red-100 text-red-600' : ai.risk==='중위험' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'"
+                      x-text="ai.risk"></span>
+                    <span x-show="ai.needsReview" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">검수 필요</span>
+                    <span x-show="ai.needsInfo" @click.stop="showRegisterModal=true" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 cursor-pointer hover:bg-blue-200">정보 보완</span>
+                  </div>
+                  <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                    <span x-text="ai.team"></span>
+                    <span>·</span>
+                    <span x-text="ai.model"></span>
+                    <span>·</span>
+                    <span>담당: <span x-text="ai.owner"></span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-6 text-xs text-gray-500">
+                <div class="text-center">
+                  <div class="text-sm font-bold text-gray-700" x-text="ai.usage"></div>
+                  <div>사용 횟수</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold" :class="ai.guardrail==='3/3' ? 'text-green-600' : ai.guardrail==='2/2' ? 'text-green-600' : 'text-orange-500'" x-text="ai.guardrail"></div>
+                  <div>가드레일</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold" :class="ai.regulation==='완료' ? 'text-green-600' : 'text-red-500'" x-text="ai.regulation"></div>
+                  <div>규제 통과</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold text-gray-700" x-text="ai.lastReview"></div>
+                  <div>최종 검수</div>
+                </div>
+                <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+      </div>
+
+      <!-- 업무 AI 뷰 -->
+      <div x-show="dashView==='work'" @dblclick.self="showTip($event, tips.workSummary)">
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-xl border p-4">
+            <div class="text-xs text-gray-500 mb-1">호스팅 중</div>
+            <div class="text-2xl font-bold text-gray-900">10</div>
+          </div>
+          <div class="bg-white rounded-xl border p-4">
+            <div class="text-xs text-gray-500 mb-1">활성 사용</div>
+            <div class="text-2xl font-bold text-green-500">7</div>
+          </div>
+          <div class="bg-white rounded-xl border p-4">
+            <div class="text-xs text-gray-500 mb-1">30일+ 미사용</div>
+            <div class="text-2xl font-bold text-orange-500">2</div>
+          </div>
+          <div class="bg-white rounded-xl border p-4">
+            <div class="text-xs text-gray-500 mb-1">중복 의심</div>
+            <div class="text-2xl font-bold text-red-500">1</div>
+          </div>
+        </div>
+        <div class="space-y-3">
+          <template x-for="skill in workSkills" :key="skill.name">
+            <div class="bg-white rounded-xl border hover:shadow-md transition-shadow p-4"
+              :class="skill.status==='방치' ? 'border-l-4 border-l-orange-400' : skill.status==='중복' ? 'border-l-4 border-l-red-400' : 'border-l-4 border-l-green-400'">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold" x-text="skill.name"></span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      :class="skill.status==='활성' ? 'bg-green-100 text-green-600' : skill.status==='방치' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'"
+                      x-text="skill.status"></span>
+                  </div>
+                  <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                    <span x-text="skill.team"></span><span>·</span><span>작성자: <span x-text="skill.author"></span></span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-6 text-xs text-gray-500">
+                  <div class="text-center"><div class="text-sm font-bold text-gray-700" x-text="skill.uses"></div><div>사용 횟수</div></div>
+                  <div class="text-center"><div class="text-sm font-bold text-gray-700" x-text="skill.lastUsed"></div><div>최근 사용</div></div>
+                  <div class="text-center"><div class="text-sm font-bold text-gray-700" x-text="skill.lastReview"></div><div>최종 검수</div></div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- 검수 (AX기획) -->
+    <div x-show="currentTab==='audit'" class="p-6" x-data="{ auditTab:'overview' }" @dblclick.self="showTip($event, {num:'A', title:'AI 검수 센터', desc:'등록된 AI의 규제·품질·운영 조건을 검수합니다.<br><br>• <b>현황</b>: 전체 AI 검수 상태 한눈에 파악<br>• <b>검수 조건</b>: 규제/품질/운영 조건 ON/OFF<br>• <b>이력</b>: 모든 검수 기록 (자동/수동)<br><br>조건 위반·검수 필요·방치 AI를 즉시 확인하고 조치합니다.'})">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-2xl font-bold">AI 검수 센터</h1>
+          <p class="text-sm text-gray-500 mt-1">등록된 모든 AI의 신뢰성 · 규제 · 품질 · 활용을 통합 관리</p>
+        </div>
+        <div class="flex gap-2">
+          <button @click="autoAuditRunning=true; setTimeout(()=>{autoAuditRunning=false; autoAuditDone=true;}, 2000)" class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+            <span x-show="autoAuditRunning" class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            <span x-text="autoAuditRunning ? '검수 중...' : autoAuditDone ? ' 검수 완료' : '전체 자동 검수 실행'"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 탭 -->
+      <div class="flex gap-1 bg-gray-100 rounded-lg p-0.5 mb-4 w-fit">
+        <button @click="auditTab='overview'" class="px-4 py-1.5 rounded-md text-xs font-medium" :class="auditTab==='overview' ? 'bg-white shadow text-primary-700' : 'text-gray-500'">현황</button>
+        <button @click="auditTab='rules'" class="px-4 py-1.5 rounded-md text-xs font-medium" :class="auditTab==='rules' ? 'bg-white shadow text-primary-700' : 'text-gray-500'">검수 조건</button>
+        <button @click="auditTab='history'" class="px-4 py-1.5 rounded-md text-xs font-medium" :class="auditTab==='history' ? 'bg-white shadow text-primary-700' : 'text-gray-500'">이력</button>
+      </div>
+
+      <!-- 현황 -->
+      <div x-show="auditTab==='overview'" x-data="{ auditFilter:'all' }">
+        <!-- 요약 카드 -->
+        <div class="grid grid-cols-4 gap-4 mb-4">
+          <div class="bg-white rounded-xl border p-4 text-center">
+            <div class="text-3xl font-bold text-green-500">17</div>
+            <div class="text-xs text-gray-500 mt-1">정상</div>
+          </div>
+          <div class="bg-white rounded-xl border p-4 text-center border-red-200">
+            <div class="text-3xl font-bold text-red-500">2</div>
+            <div class="text-xs text-gray-500 mt-1">조건 위반</div>
+          </div>
+          <div class="bg-white rounded-xl border p-4 text-center border-orange-200">
+            <div class="text-3xl font-bold text-orange-500">3</div>
+            <div class="text-xs text-gray-500 mt-1">검수 필요</div>
+          </div>
+          <div class="bg-white rounded-xl border p-4 text-center">
+            <div class="text-3xl font-bold text-gray-400">3</div>
+            <div class="text-xs text-gray-500 mt-1">방치/중복</div>
+          </div>
+        </div>
+
+        <!-- 필터 -->
+        <div class="flex items-center gap-2 mb-4">
+          <div class="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+            <button @click="auditFilter='all'" class="px-3 py-1 rounded-md text-xs font-medium" :class="auditFilter==='all' ? 'bg-white shadow text-primary-700' : 'text-gray-500'">전체</button>
+            <button @click="auditFilter='product'" class="px-3 py-1 rounded-md text-xs font-medium" :class="auditFilter==='product' ? 'bg-white shadow text-primary-700' : 'text-gray-500'">제품 AI</button>
+            <button @click="auditFilter='work'" class="px-3 py-1 rounded-md text-xs font-medium" :class="auditFilter==='work' ? 'bg-white shadow text-primary-700' : 'text-gray-500'">업무 AI</button>
+          </div>
+          <select class="border rounded-lg px-3 py-1.5 text-xs bg-white ml-2">
+            <option>전체 상태</option>
+            <option>조건 위반</option>
+            <option>검수 필요</option>
+            <option>방치/중복</option>
+            <option>정상</option>
+          </select>
+        </div>
+
+        <!-- 테이블 형태 -->
+        <div class="bg-white rounded-xl border overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 text-left text-xs text-gray-500">
+                <th class="px-4 py-3 font-medium">AI 이름</th>
+                <th class="px-4 py-3 font-medium">구분</th>
+                <th class="px-4 py-3 font-medium">서비스</th>
+                <th class="px-4 py-3 font-medium">상태</th>
+                <th class="px-4 py-3 font-medium">사유</th>
+                <th class="px-4 py-3 font-medium">최종 검수</th>
+                <th class="px-4 py-3 font-medium text-right">조치</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <!-- 조건 위반 -->
+              <tr x-show="auditFilter==='all' || auditFilter==='product'" class="bg-red-50/50">
+                                <td class="px-4 py-3 font-medium text-sm">사방넷 상품 정보고시</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">제품</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">사방넷</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-red-500">조건 위반</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">AI기본법 투명성 표시 미적용</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-06-08</td>
+                <td class="px-4 py-3 text-right"><button @click="showManualAudit={name:'사방넷 상품 정보고시', type:'critical'}; manualAuditDone=false" class="bg-primary-500 text-white px-3 py-1 rounded text-xs font-medium">검수 실행</button></td>
+              </tr>
+              <tr x-show="auditFilter==='all' || auditFilter==='product'" class="bg-red-50/50">
+                                <td class="px-4 py-3 font-medium text-sm">다우오피스 AI 챗봇</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">제품</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">다우오피스</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-red-500">조건 위반</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">AI 대화 고지 미적용</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-06-01</td>
+                <td class="px-4 py-3 text-right"><button @click="showManualAudit={name:'다우오피스 AI 챗봇', type:'critical'}; manualAuditDone=false" class="bg-primary-500 text-white px-3 py-1 rounded text-xs font-medium">검수 실행</button></td>
+              </tr>
+              <!-- 검수 필요 -->
+              <tr x-show="auditFilter==='all' || auditFilter==='product'" class="bg-orange-50/50">
+                                <td class="px-4 py-3 font-medium text-sm">사방넷 챗봇</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">제품</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">사방넷</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-orange-500">검수 필요</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">모델 변경(Claude 4 Sonnet) 후 미검수</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-06-07</td>
+                <td class="px-4 py-3 text-right"><button @click="showManualAudit={name:'사방넷 챗봇', type:'review'}; manualAuditDone=false" class="bg-primary-500 text-white px-3 py-1 rounded text-xs font-medium">검수 실행</button></td>
+              </tr>
+              <!-- 방치/중복 -->
+              <tr x-show="auditFilter==='all' || auditFilter==='work'">
+                                <td class="px-4 py-3 font-medium text-sm">이메일 초안 작성 봇</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">업무</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">다우오피스</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-orange-500">방치</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">41일 미사용</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-04-20</td>
+                <td class="px-4 py-3 text-right"><button class="border border-gray-300 text-gray-500 px-3 py-1 rounded text-xs font-medium hover:bg-gray-100" @click="$event.target.textContent='비활성화됨'; $event.target.disabled=true; $event.target.className='bg-gray-200 text-gray-400 px-3 py-1 rounded text-xs font-medium cursor-not-allowed'; $event.target.closest('tr').classList.add('opacity-40','line-through')">비활성화</button></td>
+              </tr>
+              <tr x-show="auditFilter==='all' || auditFilter==='work'">
+                                <td class="px-4 py-3 font-medium text-sm">FAQ 자동 생성 봇</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">업무</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">사방넷</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-orange-500">방치</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">85일 미사용</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-03-10</td>
+                <td class="px-4 py-3 text-right"><button class="border border-gray-300 text-gray-500 px-3 py-1 rounded text-xs font-medium hover:bg-gray-100" @click="$event.target.textContent='비활성화됨'; $event.target.disabled=true; $event.target.className='bg-gray-200 text-gray-400 px-3 py-1 rounded text-xs font-medium cursor-not-allowed'; $event.target.closest('tr').classList.add('opacity-40','line-through')">비활성화</button></td>
+              </tr>
+              <tr x-show="auditFilter==='all' || auditFilter==='work'">
+                                <td class="px-4 py-3 font-medium text-sm">CS 응대 봇 (구버전)</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">업무</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">사방넷</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-orange-500">중복</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">"CS 답변 분석 봇"과 중복</td>
+                <td class="px-4 py-3 text-xs text-gray-400">-</td>
+                <td class="px-4 py-3 text-right"><button class="border border-gray-300 text-gray-500 px-3 py-1 rounded text-xs font-medium hover:bg-gray-100" @click="$event.target.textContent='비활성화됨'; $event.target.disabled=true; $event.target.className='bg-gray-200 text-gray-400 px-3 py-1 rounded text-xs font-medium cursor-not-allowed'; $event.target.closest('tr').classList.add('opacity-40','line-through')">비활성화</button></td>
+              </tr>
+              <!-- 정상 -->
+              <tr x-show="auditFilter==='all' || auditFilter==='product'">
+                                <td class="px-4 py-3 font-medium text-sm">사방넷 CS 자동답변</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">제품</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">사방넷</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-green-500">정상</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">전체 통과</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-06-10</td>
+                <td class="px-4 py-3 text-right"><button @click="showManualAudit={name:'사방넷 CS 자동답변', type:'review'}; manualAuditDone=false" class="bg-primary-500 text-white px-3 py-1 rounded text-xs font-medium">검수 실행</button></td>
+              </tr>
+              <tr x-show="auditFilter==='all' || auditFilter==='product'">
+                                <td class="px-4 py-3 font-medium text-sm">뿌리오 AI 문자</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">제품</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">뿌리오</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-green-500">정상</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">전체 통과</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-06-09</td>
+                <td class="px-4 py-3 text-right"><button @click="showManualAudit={name:'뿌리오 AI 문자', type:'review'}; manualAuditDone=false" class="bg-primary-500 text-white px-3 py-1 rounded text-xs font-medium">검수 실행</button></td>
+              </tr>
+              <tr x-show="auditFilter==='all' || auditFilter==='product'">
+                                <td class="px-4 py-3 font-medium text-sm">다우오피스 메일 요약</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">제품</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">다우오피스</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-green-500">정상</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">전체 통과</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-05-15</td>
+                <td class="px-4 py-3 text-right"><button @click="showManualAudit={name:'다우오피스 메일 요약', type:'review'}; manualAuditDone=false" class="bg-primary-500 text-white px-3 py-1 rounded text-xs font-medium">검수 실행</button></td>
+              </tr>
+              <tr x-show="auditFilter==='all' || auditFilter==='work'">
+                                <td class="px-4 py-3 font-medium text-sm">회의록 요약 봇</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">업무</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">다우오피스</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-green-500">정상</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">전체 통과</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-06-09</td>
+                <td class="px-4 py-3 text-right"><button @click="showManualAudit={name:'회의록 요약 봇', type:'review'}; manualAuditDone=false" class="bg-primary-500 text-white px-3 py-1 rounded text-xs font-medium">검수 실행</button></td>
+              </tr>
+              <tr x-show="auditFilter==='all' || auditFilter==='work'">
+                                <td class="px-4 py-3 font-medium text-sm">마케팅 문구 생성기</td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">업무</span></td>
+                <td class="px-4 py-3 text-xs text-gray-500">뿌리오</td>
+                <td class="px-4 py-3"><span class="text-xs font-bold text-green-500">정상</span></td>
+                <td class="px-4 py-3 text-xs text-gray-600">전체 통과</td>
+                <td class="px-4 py-3 text-xs text-gray-400">2026-06-09</td>
+                <td class="px-4 py-3 text-right"><button @click="showManualAudit={name:'마케팅 문구 생성기', type:'review'}; manualAuditDone=false" class="bg-primary-500 text-white px-3 py-1 rounded text-xs font-medium">검수 실행</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 검수 조건 설정 -->
+      <div x-show="auditTab==='rules'" x-data="{ auditFileUploaded:false, auditFileAnalyzing:false }">
+
+        <!-- 검수 스킬 파일 업로드: 3개 카테고리 -->
+        <div class="grid grid-cols-3 gap-4 mb-5">
+          <!-- 규제 검수 -->
+          <div class="bg-white rounded-xl border p-4" x-data="{ regUploaded:false, regAnalyzing:false }">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs font-bold px-2 py-0.5 rounded bg-red-100 text-red-600">규제</span>
+              <span class="text-sm font-bold">규제 검수</span>
+            </div>
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-red-300 transition-colors cursor-pointer mb-3" @click="if(!regAnalyzing){regAnalyzing=true; setTimeout(()=>{regAnalyzing=false; regUploaded=true;}, 1500)}">
+              <div x-show="!regAnalyzing && !regUploaded">
+                <svg class="w-6 h-6 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <div class="text-xs text-gray-500">.md 파일 업로드</div>
+              </div>
+              <div x-show="regAnalyzing" class="py-1">
+                <div class="inline-block w-5 h-5 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin mb-1"></div>
+                <div class="text-xs text-primary-600 font-medium">분석 중...</div>
+              </div>
+              <div x-show="regUploaded && !regAnalyzing" class="py-1">
+                <div class="text-xs text-green-600 font-bold">regulation-ai-basic-law-v2.md</div>
+                <div class="text-[10px] text-primary-500">7개 조건 · 시행령 7.21 반영</div>
+              </div>
+            </div>
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between p-2 rounded border cursor-pointer" :class="regUploaded ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'" @click="if(regUploaded){$el.classList.toggle('bg-green-50');$el.classList.toggle('border-green-200');$el.classList.toggle('bg-gray-50');$el.classList.toggle('border-gray-200')}">
+                <div>
+                  <div class="text-xs font-medium">regulation-ai-basic-law.md</div>
+                  <div class="text-[10px] text-gray-500">인공지능 기본법 · 7개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold" :class="regUploaded ? 'text-gray-400' : 'text-green-600'" x-text="regUploaded ? '이전 버전' : '적용 중'"></span>
+              </div>
+              <div x-show="regUploaded" class="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                <div>
+                  <div class="text-xs font-medium">regulation-ai-basic-law-v2.md</div>
+                  <div class="text-[10px] text-gray-500">인공지능 기본법 (시행령 반영) · 7개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold text-green-600">적용 중</span>
+              </div>
+              <div class="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                <div>
+                  <div class="text-xs font-medium">regulation-privacy.md</div>
+                  <div class="text-[10px] text-gray-500">개인정보보호법 · 2개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold text-green-600">적용 중</span>
+              </div>
+              <div class="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                <div>
+                  <div class="text-xs font-medium">regulation-ecommerce.md</div>
+                  <div class="text-[10px] text-gray-500">전자상거래법 · 1개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold text-green-600">적용 중</span>
+              </div>
+              <div class="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                <div>
+                  <div class="text-xs font-medium">regulation-advertising.md</div>
+                  <div class="text-[10px] text-gray-500">표시광고법 · 1개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold text-green-600">적용 중</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 품질 검수 -->
+          <div class="bg-white rounded-xl border p-4" x-data="{ qUploaded:false, qAnalyzing:false }">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs font-bold px-2 py-0.5 rounded bg-yellow-100 text-yellow-700">품질</span>
+              <span class="text-sm font-bold">품질 검수</span>
+            </div>
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-yellow-300 transition-colors cursor-pointer mb-3" @click="if(!qAnalyzing){qAnalyzing=true; setTimeout(()=>{qAnalyzing=false; qUploaded=true;}, 1500)}">
+              <div x-show="!qAnalyzing && !qUploaded">
+                <svg class="w-6 h-6 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <div class="text-xs text-gray-500">.md 파일 업로드</div>
+              </div>
+              <div x-show="qAnalyzing" class="py-1">
+                <div class="inline-block w-5 h-5 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin mb-1"></div>
+                <div class="text-xs text-primary-600 font-medium">분석 중...</div>
+              </div>
+              <div x-show="qUploaded && !qAnalyzing" class="py-1">
+                <div class="text-xs text-green-600 font-bold">quality-output-validation.md</div>
+                <div class="text-[10px] text-primary-500">5개 조건 · 출력 품질 검증</div>
+              </div>
+            </div>
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                <div>
+                  <div class="text-xs font-medium">quality-prompt-check.md</div>
+                  <div class="text-[10px] text-gray-500">프롬프트 품질 · 3개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold text-green-600">적용 중</span>
+              </div>
+              <div x-show="qUploaded" class="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                <div>
+                  <div class="text-xs font-medium">quality-output-validation.md</div>
+                  <div class="text-[10px] text-gray-500">출력 품질 검증 · 5개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold text-green-600">적용 중</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 운영 검수 -->
+          <div class="bg-white rounded-xl border p-4" x-data="{ oUploaded:false, oAnalyzing:false }">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">운영</span>
+              <span class="text-sm font-bold">운영 검수</span>
+            </div>
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-blue-300 transition-colors cursor-pointer mb-3" @click="if(!oAnalyzing){oAnalyzing=true; setTimeout(()=>{oAnalyzing=false; oUploaded=true;}, 1500)}">
+              <div x-show="!oAnalyzing && !oUploaded">
+                <svg class="w-6 h-6 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <div class="text-xs text-gray-500">.md 파일 업로드</div>
+              </div>
+              <div x-show="oAnalyzing" class="py-1">
+                <div class="inline-block w-5 h-5 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin mb-1"></div>
+                <div class="text-xs text-primary-600 font-medium">분석 중...</div>
+              </div>
+              <div x-show="oUploaded && !oAnalyzing" class="py-1">
+                <div class="text-xs text-green-600 font-bold">ops-cost-monitoring.md</div>
+                <div class="text-[10px] text-primary-500">2개 조건 · 비용 모니터링</div>
+              </div>
+            </div>
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                <div>
+                  <div class="text-xs font-medium">ops-lifecycle.md</div>
+                  <div class="text-[10px] text-gray-500">방치·중복·모델변경 · 3개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold text-green-600">적용 중</span>
+              </div>
+              <div x-show="oUploaded" class="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                <div>
+                  <div class="text-xs font-medium">ops-cost-monitoring.md</div>
+                  <div class="text-[10px] text-gray-500">비용 모니터링 · 2개 조건</div>
+                </div>
+                <span class="text-[10px] font-bold text-green-600">적용 중</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 검수 조건 상세 (파일에서 추출된 조건들) -->
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">추출된 검수 조건 상세</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4 mb-4">
+          <div class="space-y-4">
+            <!-- 인공지능 기본법 -->
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-gray-800 text-white">법률</span>
+                <span class="text-sm font-bold">인공지능 기본법</span>
+                <span class="text-[10px] text-gray-400">제31조·제32조·제34조</span>
+                <button class="ml-auto text-xs text-primary-500 hover:text-primary-700" @click="let c=prompt('인공지능 기본법에 추가할 조건명:'); if(c) alert('「'+c+'」 조건이 추가되었습니다.')">+ 조건 추가</button>
+              </div>
+              <div class="space-y-2 pl-3 border-l-2 border-gray-200">
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">사전 고지 (제31조)</div>
+                    <div class="text-xs text-gray-500">AI 기반 제품/서비스임을 이용자에게 사전 고지</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Critical</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">AI 생성물 표시 (제31조)</div>
+                    <div class="text-xs text-gray-500">AI가 생성한 콘텐츠에 "AI 생성" 표시 필수</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Critical</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">AI 대화 고지 (제31조)</div>
+                    <div class="text-xs text-gray-500">챗봇 등에서 "AI와 대화 중"임을 고지</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Critical</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">안전성 확보 (제32조)</div>
+                    <div class="text-xs text-gray-500">기술적 안전조치 이행 및 위험관리 방안 수립</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Critical</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">고영향 AI 영향평가 (제34조)</div>
+                    <div class="text-xs text-gray-500">고영향 AI 해당 시 기본권 영향평가 실시 (11개 분야)</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">High</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">관리·감독자 게시 (제34조)</div>
+                    <div class="text-xs text-gray-500">AI 관리·감독자 성명 및 연락처 홈페이지 게시</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">High</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">이행 근거 보관 (제34조)</div>
+                    <div class="text-xs text-gray-500">각 조치의 이행 근거 문서 5년간 보관</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Medium</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- 개인정보보호법 -->
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-gray-800 text-white">법률</span>
+                <span class="text-sm font-bold">개인정보보호법</span>
+                <button class="ml-auto text-xs text-primary-500 hover:text-primary-700" @click="let c=prompt('개인정보보호법에 추가할 조건명:'); if(c) alert('「'+c+'」 조건이 추가되었습니다.')">+ 조건 추가</button>
+              </div>
+              <div class="space-y-2 pl-3 border-l-2 border-gray-200">
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">고객 데이터 AI 학습 차단</div>
+                    <div class="text-xs text-gray-500">고객 개인정보가 AI 모델 학습에 사용되지 않도록 차단</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Critical</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">PII 마스킹</div>
+                    <div class="text-xs text-gray-500">주민번호·카드번호 등 개인식별정보 자동 마스킹 처리</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Critical</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- 전자상거래법 -->
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-gray-800 text-white">법률</span>
+                <span class="text-sm font-bold">전자상거래법</span>
+                <button class="ml-auto text-xs text-primary-500 hover:text-primary-700" @click="let c=prompt('전자상거래법에 추가할 조건명:'); if(c) alert('「'+c+'」 조건이 추가되었습니다.')">+ 조건 추가</button>
+              </div>
+              <div class="space-y-2 pl-3 border-l-2 border-gray-200">
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">CS 답변 정확성</div>
+                    <div class="text-xs text-gray-500">CS AI의 환불/교환 답변이 정책 DB와 일치하는지 확인</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Critical</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- 표시광고법 -->
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-gray-800 text-white">법률</span>
+                <span class="text-sm font-bold">표시광고법</span>
+                <button class="ml-auto text-xs text-primary-500 hover:text-primary-700" @click="let c=prompt('표시광고법에 추가할 조건명:'); if(c) alert('「'+c+'」 조건이 추가되었습니다.')">+ 조건 추가</button>
+              </div>
+              <div class="space-y-2 pl-3 border-l-2 border-gray-200">
+                <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium">과장 광고 방지</div>
+                    <div class="text-xs text-gray-500">마케팅 AI의 과장 표현 자동 감지</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">High</span>
+                    <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label mb-3">품질 검수 조건</div>
+        <div class="bg-white rounded-xl border p-4 mb-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div class="text-sm font-bold">프롬프트 길이 제한</div>
+                <div class="text-xs text-gray-500">1,200 토큰 초과 시 경고</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Medium</span>
+                <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div class="text-sm font-bold">역할 분리 권장</div>
+                <div class="text-xs text-gray-500">하나의 스킬에 3개 이상 역할 포함 시 분리 권장</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Medium</span>
+                <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div class="text-sm font-bold">KB 용어 정합성</div>
+                <div class="text-xs text-gray-500">KB에 등록된 용어를 사용 시 표준 정의와 일치하는지 확인</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Medium</span>
+                <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label mb-3">운영 검수 조건</div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div class="text-sm font-bold">방치 AI 감지</div>
+                <div class="text-xs text-gray-500">30일 이상 미사용 시 자동 감지 + 담당자 알림</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Medium</span>
+                <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div class="text-sm font-bold">중복 스킬 자동 감지</div>
+                <div class="text-xs text-gray-500">유사도 80% 이상 스킬이 발견되면 병합 제안</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Medium</span>
+                <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div class="text-sm font-bold">모델 변경 자동 재검수</div>
+                <div class="text-xs text-gray-500">AI 모델 버전 변경 감지 시 자동으로 재검수 트리거</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">High</span>
+                <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+              </div>
+            </div>
+            <!-- 커스텀 추가 폼 -->
+            <div x-data="{ showAddRule:false, newRuleName:'', newRuleDesc:'', newRuleSev:'Medium', ruleAdded:false }">
+              <button x-show="!showAddRule && !ruleAdded" @click="showAddRule=true" class="w-full border-2 border-dashed border-gray-300 rounded-lg py-3 text-sm text-gray-400 hover:border-primary-400 hover:text-primary-500">+ 커스텀 검수 조건 추가</button>
+              <div x-show="showAddRule" class="border-2 border-primary-200 bg-primary-50/30 rounded-lg p-4 space-y-3">
+                <div class="text-sm font-bold text-primary-700">새 검수 조건</div>
+                <div>
+                  <label class="text-xs font-medium text-gray-700 block mb-1">조건 이름</label>
+                  <input x-model="newRuleName" type="text" placeholder="예: 응답 시간 3초 초과 경고" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-gray-700 block mb-1">설명</label>
+                  <input x-model="newRuleDesc" type="text" placeholder="예: AI 응답 시간이 3초를 초과하면 검수 경고" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-gray-700 block mb-1">심각도</label>
+                  <select x-model="newRuleSev" class="border rounded-lg px-3 py-2 text-sm bg-white">
+                    <option>Critical</option>
+                    <option>High</option>
+                    <option>Medium</option>
+                    <option>Low</option>
+                  </select>
+                </div>
+                <div class="flex gap-2">
+                  <button @click="showAddRule=false; ruleAdded=true" class="flex-1 bg-primary-500 text-white px-3 py-2 rounded-lg text-sm font-medium">등록</button>
+                  <button @click="showAddRule=false" class="flex-1 border border-gray-300 px-3 py-2 rounded-lg text-sm font-medium">취소</button>
+                </div>
+              </div>
+              <div x-show="ruleAdded" class="flex items-center justify-between p-3 bg-primary-50 rounded-lg border border-primary-200">
+                <div>
+                  <div class="text-sm font-bold" x-text="newRuleName || '커스텀 조건'"></div>
+                  <div class="text-xs text-gray-500" x-text="newRuleDesc || '설명 없음'"></div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600" x-text="newRuleSev"></span>
+                  <div class="w-8 h-5 bg-green-400 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 right-0.5"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 이력 -->
+      <div x-show="auditTab==='history'">
+      <div class="section-label mb-3">검수 이력</div>
+      <div class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 text-left text-xs text-gray-500">
+              <th class="px-4 py-3 font-medium">일시</th>
+              <th class="px-4 py-3 font-medium">AI</th>
+              <th class="px-4 py-3 font-medium">유형</th>
+              <th class="px-4 py-3 font-medium">트리거</th>
+              <th class="px-4 py-3 font-medium">결과</th>
+              <th class="px-4 py-3 font-medium">담당자</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <template x-for="rec in auditRecords" :key="rec.id">
+              <tr @click="showAuditDetail=rec" class="hover:bg-gray-50 cursor-pointer">
+                <td class="px-4 py-3 text-xs text-gray-500" x-text="rec.date"></td>
+                <td class="px-4 py-3 font-medium text-xs" x-text="rec.ai"></td>
+                <td class="px-4 py-3"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :class="rec.type==='자동' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'" x-text="rec.type"></span></td>
+                <td class="px-4 py-3 text-xs text-gray-600" x-text="rec.trigger"></td>
+                <td class="px-4 py-3"><span class="text-xs font-medium" :class="rec.resultColor==='green' ? 'text-green-500' : rec.resultColor==='red' ? 'text-red-500' : 'text-orange-500'" x-text="rec.result"></span></td>
+                <td class="px-4 py-3 text-xs text-gray-500" x-text="rec.by"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    </div>
+
+    <!-- 내 서비스 AI (일반 팀 뷰) -->
+    <div x-show="currentTab==='myInventory'" class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold"><span x-text="currentTeam"></span> AI 현황</h1>
+          <p class="text-sm text-gray-500 mt-1">내가 등록한 AI 기능과 스킬입니다</p>
+        </div>
+        <div class="text-xs text-gray-400 bg-gray-100 px-3 py-2 rounded-lg">Git push 시 자동 등록</div>
+      </div>
+
+      <div class="space-y-3">
+        <template x-for="ai in aiList.filter(a => a.team.includes(currentTeam))" :key="ai.name">
+          <div @click="selectedAI=ai; showDetail=true"
+            class="bg-white rounded-xl border hover:shadow-md transition-shadow cursor-pointer p-4"
+            :class="ai.risk==='고위험' ? 'risk-high' : ai.risk==='중위험' ? 'risk-mid' : 'risk-low'">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold" x-text="ai.name"></span>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    :class="ai.risk==='고위험' ? 'bg-red-100 text-red-600' : ai.risk==='중위험' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'"
+                    x-text="ai.risk"></span>
+                </div>
+                <div class="text-xs text-gray-500 mt-1"><span x-text="ai.model"></span> · 담당: <span x-text="ai.owner"></span></div>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-gray-500">
+                <div class="text-center">
+                  <div class="text-sm font-bold" :class="ai.guardrail==='3/3'||ai.guardrail==='2/2' ? 'text-green-600' : 'text-orange-500'" x-text="ai.guardrail"></div>
+                  <div>가드레일</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold" :class="ai.regulation==='완료' ? 'text-green-600' : 'text-red-500'" x-text="ai.regulation"></div>
+                  <div>규제</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold text-gray-700" x-text="ai.lastReview"></div>
+                  <div>최종 검수</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 내 팀 업무 AI -->
+    <div x-show="currentTab==='myWorkAI'" class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold"><span x-text="currentTeam"></span> 업무 AI</h1>
+          <p class="text-sm text-gray-500 mt-1">내가 호스팅 중인 업무 AI 봇입니다</p>
+        </div>
+        <div class="text-xs text-gray-400 bg-gray-100 px-3 py-2 rounded-lg">호스팅 시 자동 등록</div>
+      </div>
+      <div class="space-y-3">
+        <template x-for="skill in workSkills.filter(s => s.team.includes(currentTeam))" :key="skill.name">
+          <div class="bg-white rounded-xl border hover:shadow-md transition-shadow p-4"
+            :class="skill.status==='방치' ? 'border-l-4 border-l-orange-400' : skill.status==='중복' ? 'border-l-4 border-l-red-400' : 'border-l-4 border-l-green-400'">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold" x-text="skill.name"></span>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    :class="skill.status==='활성' ? 'bg-green-100 text-green-600' : skill.status==='방치' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'"
+                    x-text="skill.status"></span>
+                </div>
+                <div class="text-xs text-gray-500 mt-1">작성자: <span x-text="skill.author"></span></div>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-gray-500">
+                <div class="text-center">
+                  <div class="text-sm font-bold text-gray-700" x-text="skill.uses"></div>
+                  <div>사용 횟수</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold text-gray-700" x-text="skill.lastUsed"></div>
+                  <div>최근 사용</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 다우GPT (KB 기반 채팅) -->
+    <div x-show="currentTab==='kbChat'" class="h-full flex" @dblclick.self="showTip($event, {num:'G', title:'다우GPT', desc:'Knowledge Base에 등록된 용어·정의를 자동으로 참조하여 답변합니다.<br><br>• 사내 DB 접근: 매출, 고객, 프로젝트 데이터<br>• KB 맥락 자동 주입으로 팀별 정의 차이 없이 일관된 답변<br>• 대화 중 새로운 정의 발견 시 KB에 반영 제안<br><br>ChatGPT와 같지만 <b>우리 회사 맥락</b>으로 대화합니다.'})">
+
+      <!-- 좌측: 세션 목록 -->
+      <div class="w-60 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+        <div class="p-3 border-b border-gray-100">
+          <button class="w-full flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            새 대화
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto p-2 space-y-1">
+          <div class="text-[10px] text-gray-400 px-2 py-1 font-medium">오늘</div>
+          <div class="bg-primary-50 text-primary-700 rounded-lg px-3 py-2 text-sm font-medium cursor-pointer">사방넷 전환율 분석</div>
+          <div class="text-gray-600 hover:bg-gray-50 rounded-lg px-3 py-2 text-sm cursor-pointer">CS 답변 품질 기준</div>
+          <div class="text-[10px] text-gray-400 px-2 py-1 font-medium mt-2">어제</div>
+          <div class="text-gray-600 hover:bg-gray-50 rounded-lg px-3 py-2 text-sm cursor-pointer">뿌리오 발송 성과 요약</div>
+          <div class="text-gray-600 hover:bg-gray-50 rounded-lg px-3 py-2 text-sm cursor-pointer">AI 챗봇 규제 확인</div>
+          <div class="text-[10px] text-gray-400 px-2 py-1 font-medium mt-2">이번 주</div>
+          <div class="text-gray-600 hover:bg-gray-50 rounded-lg px-3 py-2 text-sm cursor-pointer">활성 사용자 정의 비교</div>
+          <div class="text-gray-600 hover:bg-gray-50 rounded-lg px-3 py-2 text-sm cursor-pointer">다우오피스 MAU 추세</div>
+          <div class="text-gray-600 hover:bg-gray-50 rounded-lg px-3 py-2 text-sm cursor-pointer">환불 정책 DB 구조</div>
+        </div>
+        <div class="p-3 border-t border-gray-100 text-xs text-gray-400 text-center">세션은 본인만 확인 가능</div>
+      </div>
+
+      <!-- 우측: 채팅 영역 -->
+      <div class="flex-1 flex flex-col p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h1 class="text-xl font-bold">사방넷 전환율 분석</h1>
+            <p class="text-xs text-gray-400 mt-0.5">KB 기반 · 사내 DB 연결</p>
+          </div>
+        </div>
+
+        <div class="flex-1 bg-white rounded-xl border p-6 flex flex-col">
+          <!-- 채팅 메시지 -->
+          <div class="flex-1 space-y-4 overflow-auto mb-4">
+            <div class="flex gap-3">
+              <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 text-xs font-bold flex-shrink-0">DG</div>
+              <div class="bg-gray-50 rounded-xl rounded-tl-none px-4 py-3 max-w-lg">
+                <div class="text-sm text-gray-700">안녕하세요! 다우기술 Knowledge Base 기반 AI 어시스턴트입니다. 사내 데이터와 표준 정의를 참고하여 답변드립니다.</div>
+              </div>
+            </div>
+            <div class="flex gap-3 justify-end">
+              <div class="bg-primary-500 text-white rounded-xl rounded-tr-none px-4 py-3 max-w-lg">
+                <div class="text-sm">사방넷의 이번 달 전환율이 어떻게 되지?</div>
+              </div>
+              <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-xs font-bold flex-shrink-0">나</div>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 text-xs font-bold flex-shrink-0">DG</div>
+              <div class="bg-gray-50 rounded-xl rounded-tl-none px-4 py-3 max-w-lg">
+                <div class="text-sm text-gray-700">
+                  사방넷의 2026년 6월 전환율은 <strong>3.2%</strong>입니다.<br><br>
+                  <span class="text-xs text-primary-600 bg-primary-50 px-2 py-0.5 rounded">KB 참조: 전환율 = 문의→구매 완료 비율 (사방넷 기준)</span><br><br>
+                  전월(2.8%) 대비 0.4%p 상승했으며, 주요 원인은 AI 카테고리 추천 기능 도입으로 인한 상품 검색 정확도 향상입니다.
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-3 justify-end">
+              <div class="bg-primary-500 text-white rounded-xl rounded-tr-none px-4 py-3 max-w-lg">
+                <div class="text-sm">다른 서비스들의 전환율은?</div>
+              </div>
+              <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-xs font-bold flex-shrink-0">나</div>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 text-xs font-bold flex-shrink-0">DG</div>
+              <div class="bg-gray-50 rounded-xl rounded-tl-none px-4 py-3 max-w-lg">
+                <div class="text-sm text-gray-700">
+                  각 서비스별 전환율 (6월 기준):<br><br>
+                  • <strong>사방넷</strong>: 3.2% <span class="text-xs text-gray-400">(문의→구매)</span><br>
+                  • <strong>뿌리오</strong>: 12.4% <span class="text-xs text-gray-400">(수신→클릭)</span><br>
+                  • <strong>다우오피스</strong>: 8.7% <span class="text-xs text-gray-400">(체험→유료)</span><br><br>
+                  <span class="text-xs text-primary-600 bg-primary-50 px-2 py-0.5 rounded">KB 참조: 각 서비스의 전환율 정의가 다르므로 직접 비교는 적절하지 않습니다</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- 입력 -->
+          <div class="flex gap-3">
+            <input type="text" placeholder="질문을 입력하세요... (사내 DB + KB 기반으로 답변)" class="flex-1 border rounded-xl px-4 py-3 text-sm">
+            <button class="bg-primary-500 hover:bg-primary-600 text-white px-5 py-3 rounded-xl text-sm font-medium">전송</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 업무 AI 대시보드 -->
+    <div x-show="currentTab==='workInventory'" class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold">업무 AI 대시보드</h1>
+          <p class="text-sm text-gray-500 mt-1">임직원이 사용하는 AI 스킬·프롬프트를 관리합니다</p>
+        </div>
+        <div class="text-xs text-gray-400 bg-gray-100 px-3 py-2 rounded-lg">호스팅 시 자동 등록</div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6" @dblclick="showTip($event, tips.workSummary)">
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">등록된 스킬</div>
+          <div class="text-2xl font-bold text-gray-900">23</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">활성 사용</div>
+          <div class="text-2xl font-bold text-green-500">14</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">30일+ 미사용</div>
+          <div class="text-2xl font-bold text-orange-500">6</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">중복 의심</div>
+          <div class="text-2xl font-bold text-red-500">2</div>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <template x-for="skill in workSkills" :key="skill.name">
+          <div class="bg-white rounded-xl border hover:shadow-md transition-shadow p-4"
+            :class="skill.status==='방치' ? 'border-l-4 border-l-orange-400' : skill.status==='중복' ? 'border-l-4 border-l-red-400' : 'border-l-4 border-l-green-400'">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold" x-text="skill.name"></span>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    :class="skill.status==='활성' ? 'bg-green-100 text-green-600' : skill.status==='방치' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'"
+                    x-text="skill.status"></span>
+                </div>
+                <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                  <span x-text="skill.team"></span>
+                  <span>·</span>
+                  <span>작성자: <span x-text="skill.author"></span></span>
+                  <span>·</span>
+                  <span x-text="skill.type"></span>
+                </div>
+              </div>
+              <div class="flex items-center gap-6 text-xs text-gray-500">
+                <div class="text-center">
+                  <div class="text-sm font-bold text-gray-700" x-text="skill.uses"></div>
+                  <div>사용 횟수</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold text-gray-700" x-text="skill.lastUsed"></div>
+                  <div>최근 사용</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold text-gray-700" x-text="skill.lastReview"></div>
+                  <div>최종 검수</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 다우GPT 대시보드 (관리자) -->
+    <div x-show="currentTab==='gptDash'" class="p-6" @dblclick.self="showTip($event, {num:'G', title:'다우GPT 사용 현황', desc:'전사 다우GPT 사용 현황을 모니터링합니다.<br><br>• 서비스별/개인별 사용량·질문 빈도<br>• 주요 질문 주제 분석<br>• 병목 파악: 어떤 서비스가 어떤 질문에서 막히는지<br>• KB 개선 포인트 도출'})">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold">다우GPT 사용 현황</h1>
+          <p class="text-sm text-gray-500 mt-1">전사 다우GPT 사용 패턴을 모니터링하여 병목을 파악합니다</p>
+        </div>
+      </div>
+
+      <!-- 요약 -->
+      <div class="grid grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">이번 주 총 질문</div>
+          <div class="text-2xl font-bold text-primary-600">2,847</div>
+          <div class="text-xs text-green-500 mt-1">+12% vs 지난주</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">활성 사용자</div>
+          <div class="text-2xl font-bold text-primary-600">234/740</div>
+          <div class="text-xs text-gray-400 mt-1">31.6% 활용률</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">KB 참조율</div>
+          <div class="text-2xl font-bold text-green-500">78%</div>
+          <div class="text-xs text-gray-400 mt-1">답변 중 KB 정의 활용 비율</div>
+        </div>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="text-xs text-gray-500 mb-1">KB 미등록 질문</div>
+          <div class="text-2xl font-bold text-orange-500">43</div>
+          <div class="text-xs text-orange-400 mt-1">KB 추가 필요 후보</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-6">
+        <!-- 개인별 사용량 -->
+        <div class="bg-white rounded-xl border p-5">
+          <div class="text-sm font-bold mb-4">개인별 사용량 (이번 주)</div>
+          <div class="space-y-3">
+            <div>
+              <div class="flex items-center justify-between text-sm mb-1"><span>박동환</span><span class="font-bold">345건</span></div>
+              <div class="h-3 bg-gray-100 rounded-full"><div class="h-3 bg-primary-400 rounded-full" style="width:90%"></div></div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between text-sm mb-1"><span>김민수</span><span class="font-bold">287건</span></div>
+              <div class="h-3 bg-gray-100 rounded-full"><div class="h-3 bg-primary-400 rounded-full" style="width:75%"></div></div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between text-sm mb-1"><span>정수현</span><span class="font-bold">234건</span></div>
+              <div class="h-3 bg-gray-100 rounded-full"><div class="h-3 bg-primary-400 rounded-full" style="width:61%"></div></div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between text-sm mb-1"><span>이하늘</span><span class="font-bold">198건</span></div>
+              <div class="h-3 bg-gray-100 rounded-full"><div class="h-3 bg-primary-400 rounded-full" style="width:52%"></div></div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between text-sm mb-1"><span>박준호</span><span class="font-bold">156건</span></div>
+              <div class="h-3 bg-gray-100 rounded-full"><div class="h-3 bg-primary-400 rounded-full" style="width:41%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 병목 파악 -->
+        <div class="bg-white rounded-xl border p-5">
+          <div class="text-sm font-bold mb-4">자주 막히는 질문 유형</div>
+          <div class="space-y-3">
+            <div class="border-l-4 border-red-400 pl-3 py-2">
+              <div class="text-sm font-bold text-gray-900">환불/교환 정책 관련</div>
+              <div class="text-xs text-gray-500 mt-0.5">사방넷 · 주 187건 · KB 정의 불충분</div>
+              <div class="text-xs text-red-500 mt-1 font-medium">→ KB에 환불 정책 상세 추가 필요</div>
+            </div>
+            <div class="border-l-4 border-orange-400 pl-3 py-2">
+              <div class="text-sm font-bold text-gray-900">제품 간 지표 비교</div>
+              <div class="text-xs text-gray-500 mt-0.5">AX기획 · 주 89건 · 팀별 정의 차이로 혼선</div>
+              <div class="text-xs text-orange-500 mt-1 font-medium">→ 지표 정의 통일 작업 필요</div>
+            </div>
+            <div class="border-l-4 border-orange-400 pl-3 py-2">
+              <div class="text-sm font-bold text-gray-900">배송 상태 조회</div>
+              <div class="text-xs text-gray-500 mt-0.5">사방넷 · 주 67건 · 외부 API 연동 미지원</div>
+              <div class="text-xs text-orange-500 mt-1 font-medium">→ 배송 API 연동 검토</div>
+            </div>
+            <div class="border-l-4 border-yellow-400 pl-3 py-2">
+              <div class="text-sm font-bold text-gray-900">HR 관련 질문</div>
+              <div class="text-xs text-gray-500 mt-0.5">전사 · 주 45건 · 민감 데이터 접근 제한</div>
+              <div class="text-xs text-yellow-600 mt-1 font-medium">→ HR 데이터 접근 범위 재정의 필요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Knowledge Base -->
+    <div x-show="currentTab==='kb'" class="p-6" x-data="{ selectedKB:null }" @dblclick="showTip($event, tips.kb)">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-2xl font-bold">Knowledge Base</h1>
+          <p class="text-sm text-gray-500 mt-1">조직의 정의, 용어, 맥락을 표준화합니다</p>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" placeholder="용어 검색..." class="border rounded-lg px-3 py-1.5 text-sm w-48">
+          <button class="border border-gray-300 text-gray-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-50">Notion/Slack 임포트</button>
+          <button class="bg-primary-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">+ 용어 추가</button>
+        </div>
+      </div>
+
+      <div class="flex gap-4" style="height:520px;">
+        <!-- 좌측: 파일 트리 -->
+        <div class="w-56 bg-white rounded-xl border p-3 overflow-auto flex-shrink-0">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Knowledge Base</div>
+
+          <!-- 공통 -->
+          <div class="mb-2">
+            <div class="flex items-center gap-1.5 px-1 py-1 text-xs font-bold text-gray-700 cursor-pointer">
+              <span class="text-gray-400">▾</span>  공통
+            </div>
+            <div class="ml-4 space-y-0.5">
+              <div @click="selectedKB=kbTerms[0]" class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-primary-50" :class="selectedKB?.name==='전환율' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600'"> 전환율</div>
+              <div @click="selectedKB=kbTerms[1]" class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-primary-50" :class="selectedKB?.name==='활성 사용자 (AU)' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600'"> 활성 사용자 (AU)</div>
+              <div @click="selectedKB=kbTerms[6]" class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-primary-50" :class="selectedKB?.name==='KPI' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600'"> KPI</div>
+              <div @click="selectedKB=kbTerms[7]" class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-primary-50" :class="selectedKB?.name==='매출' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600'"> 매출</div>
+            </div>
+          </div>
+
+          <!-- 거버넌스 -->
+          <div class="mb-2">
+            <div class="flex items-center gap-1.5 px-1 py-1 text-xs font-bold text-gray-700 cursor-pointer">
+              <span class="text-gray-400">▾</span>  거버넌스
+            </div>
+            <div class="ml-4 space-y-0.5">
+              <div @click="selectedKB=kbTerms[2]" class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-primary-50" :class="selectedKB?.name==='고위험 AI' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600'"> 고위험 AI</div>
+              <div @click="selectedKB=kbTerms[3]" class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-primary-50" :class="selectedKB?.name==='가드레일' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600'"> 가드레일</div>
+              <div @click="selectedKB=kbTerms[4]" class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-primary-50" :class="selectedKB?.name==='Hook' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600'"> Hook</div>
+              <div @click="selectedKB=kbTerms[5]" class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-primary-50" :class="selectedKB?.name==='리스크 등급' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600'"> 리스크 등급</div>
+            </div>
+          </div>
+
+          <!-- 사방넷 -->
+          <div class="mb-2">
+            <div class="flex items-center gap-1.5 px-1 py-1 text-xs font-bold text-gray-700 cursor-pointer">
+              <span class="text-gray-400">▾</span>  사방넷
+            </div>
+            <div class="ml-4 space-y-0.5">
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 환불 정책</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 상품 카테고리 기준</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> CS 응대 가이드</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 정보고시 필수항목</div>
+            </div>
+          </div>
+
+          <!-- 뿌리오 -->
+          <div class="mb-2">
+            <div class="flex items-center gap-1.5 px-1 py-1 text-xs font-bold text-gray-700 cursor-pointer">
+              <span class="text-gray-400">▾</span>  뿌리오
+            </div>
+            <div class="ml-4 space-y-0.5">
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 문자 발송 규칙</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 과장 광고 금지 표현</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 수신자 세그먼트 기준</div>
+            </div>
+          </div>
+
+          <!-- 다우오피스 -->
+          <div class="mb-2">
+            <div class="flex items-center gap-1.5 px-1 py-1 text-xs font-bold text-gray-700 cursor-pointer">
+              <span class="text-gray-400">▾</span>  다우오피스
+            </div>
+            <div class="ml-4 space-y-0.5">
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 문서 접근 권한 기준</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 민감 문서 카테고리</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 메일 요약 톤 가이드</div>
+            </div>
+          </div>
+
+          <!-- 규제 -->
+          <div class="mb-2">
+            <div class="flex items-center gap-1.5 px-1 py-1 text-xs font-bold text-gray-700 cursor-pointer">
+              <span class="text-gray-400">▾</span>  규제
+            </div>
+            <div class="ml-4 space-y-0.5">
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 인공지능 기본법</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 전자상거래법</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 표시광고법</div>
+              <div class="px-2 py-1 text-xs text-gray-600 rounded cursor-pointer hover:bg-primary-50"> 개인정보보호법</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측: 문서 내용 또는 그래프 -->
+        <div class="flex-1 flex flex-col gap-4">
+          <!-- 문서 내용 -->
+          <div x-show="selectedKB" class="bg-white rounded-xl border p-6 flex-1 overflow-auto">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-bold" x-text="selectedKB?.name"></h2>
+              <div class="flex items-center gap-2 text-xs text-gray-400">
+                <span>작성: <span x-text="selectedKB?.author"></span></span>
+                <span>·</span>
+                <span x-text="selectedKB?.updated"></span>
+                <button class="ml-2 text-primary-500 hover:text-primary-700">편집</button>
+              </div>
+            </div>
+            <div class="text-sm text-gray-700 leading-relaxed mb-4" x-text="selectedKB?.definition"></div>
+            <div x-show="selectedKB?.links" class="border-t pt-3">
+              <div class="text-xs font-bold text-gray-500 mb-2">연결된 문서</div>
+              <div class="flex flex-wrap gap-2">
+                <template x-for="link in (selectedKB?.links || [])" :key="link">
+                  <span class="text-xs bg-primary-50 text-primary-700 px-3 py-1 rounded-full cursor-pointer hover:bg-primary-100 border border-primary-200" x-text="' ' + link"></span>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- 그래프 (문서 미선택 시) -->
+          <div x-show="!selectedKB" class="bg-white rounded-xl border flex-1 overflow-hidden">
+            <div class="p-3 border-b flex items-center justify-between">
+              <span class="text-sm font-bold text-gray-700">그래프 뷰</span>
+              <span class="text-[10px] text-gray-400">47개 용어 · 83개 연결</span>
+            </div>
+            <canvas id="kbGraph" width="800" height="400"></canvas>
+          </div>
+
+          <!-- 하단: 통계 바 -->
+          <div class="flex gap-3">
+            <div class="bg-white rounded-lg border px-4 py-2 flex-1 flex items-center justify-between">
+              <span class="text-xs text-gray-500">등록된 용어</span>
+              <span class="text-sm font-bold text-primary-600">47</span>
+            </div>
+            <div class="bg-white rounded-lg border px-4 py-2 flex-1 flex items-center justify-between">
+              <span class="text-xs text-gray-500">이번 주 업데이트</span>
+              <span class="text-sm font-bold text-primary-600">12</span>
+            </div>
+            <div class="bg-white rounded-lg border px-4 py-2 flex-1 flex items-center justify-between">
+              <span class="text-xs text-gray-500">서비스 간 정의 통일</span>
+              <span class="text-sm font-bold text-green-500">5건 해소</span>
+            </div>
+            <div class="bg-white rounded-lg border px-4 py-2 flex-1 flex items-center justify-between">
+              <span class="text-xs text-gray-500">정의 충돌</span>
+              <span class="text-sm font-bold text-orange-500">2건 미해소</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 공유 라이브러리 -->
+    <div x-show="currentTab==='library'" class="p-6">
+      <h1 class="text-2xl font-bold mb-2">공유 라이브러리</h1>
+      <p class="text-sm text-gray-500 mb-6">서비스 간 AI 스킬과 아티팩트를 공유합니다</p>
+
+      <div @dblclick="showTip($event, tips.library)">
+        <div class="space-y-6">
+          <!-- 스킬 섹션 -->
+          <div>
+            <div class="section-label mb-2">서비스</div>
+            <div class="grid grid-cols-2 gap-3">
+              <template x-for="skill in skills.filter(s=>s.type==='서비스')" :key="skill.name">
+                <div @click="window.open(skill.url || '#', '_blank')" class="bg-white rounded-xl border p-4 hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-primary-300" >
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary-700">스킬</span>
+                    <span class="text-[10px] text-gray-400" x-text="skill.team"></span>
+                  </div>
+                  <div class="font-bold text-sm mb-1" x-text="skill.name"></div>
+                  <div class="text-xs text-gray-500 mb-3" x-text="skill.desc"></div>
+                  <div class="flex items-center justify-between text-[10px] text-gray-400">
+                    <span>최신 업데이트</span>
+                    <span x-text="skill.date"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 분석 아티팩트 섹션 -->
+          <div>
+            <div class="section-label mb-2">분석 아티팩트</div>
+            <div class="grid grid-cols-2 gap-3">
+              <template x-for="skill in skills.filter(s=>s.type==='분석 아티팩트')" :key="skill.name">
+                <div @click="window.open(skill.url || '#', '_blank')" class="bg-white rounded-xl border p-4 hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-amber-300" >
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">분석 아티팩트</span>
+                    <span class="text-[10px] text-gray-400" x-text="skill.team"></span>
+                  </div>
+                  <div class="font-bold text-sm mb-1" x-text="skill.name"></div>
+                  <div class="text-xs text-gray-500 mb-3" x-text="skill.desc"></div>
+                  <div class="flex items-center justify-between text-[10px] text-gray-400">
+                    <span>최신 업데이트</span>
+                    <span x-text="skill.date"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  
+    <!-- AI 정보 보완 모달 -->
+    <!-- 검수 상세 팝업 -->
+    <!-- 수동 검수 팝업 -->
+    </div><!-- /스크롤 영역 -->
+    </main>
+<template x-if="showRegisterModal">
+    <div class="fixed inset-0 z-30 flex items-center justify-center" @click="showRegisterModal=false">
+    <div class="absolute inset-0 bg-black/30"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-[900px] max-h-[85vh] overflow-auto p-6" @click.stop>
+      <div class="flex items-center gap-3 mb-2">
+        <h1 class="text-2xl font-bold">AI 정보 보완</h1>
+        <span class="text-xs font-bold px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">보완 필요</span>
+        <button @click="showRegisterModal=false" class="ml-auto text-gray-400 hover:text-gray-600 text-xl">×</button>
+      </div>
+      <p class="text-sm text-gray-500 mb-6">자동 등록된 AI의 메타데이터를 보완합니다. 스킬 파일을 업로드하면 자동으로 분석됩니다.</p>
+
+      <div class="flex gap-6" x-data="{ uploaded: false, loading: false, aiName:'', aiModel:'', aiPurpose:'', aiTeam:'', aiApi:'', aiDb:'' }">
+        <!-- 왼쪽: 등록 폼 -->
+        <div class="flex-1">
+          <div class="bg-white rounded-xl border p-6">
+            <div class="space-y-4">
+              <!-- 파일 업로드 -->
+              <div>
+                <label class="text-sm font-medium text-gray-700 block mb-1">스킬 파일 업로드</label>
+                <div x-show="!uploaded && !loading" @click="loading=true; setTimeout(()=>{loading=false; uploaded=true; aiName='사방넷 CS 자동답변 v2.1'; aiModel='Claude 4 Sonnet'; aiPurpose='고객 대면 (CS)'; aiTeam='사방넷'; aiApi='사방넷 주문 API, 환불정책 API'; aiDb='고객문의 DB, 주문 DB'}, 1500)" @dragover.prevent @drop.prevent="loading=true; setTimeout(()=>{loading=false; uploaded=true; aiName='사방넷 CS 자동답변 v2.1'; aiModel='Claude 4 Sonnet'; aiPurpose='고객 대면 (CS)'; aiTeam='사방넷'; aiApi='사방넷 주문 API, 환불정책 API'; aiDb='고객문의 DB, 주문 DB'}, 1500)"
+                  class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 transition-colors">
+                  <div class="text-gray-400 text-2xl mb-1"></div>
+                  <div class="text-sm text-gray-500">스킬 파일(.md)을 드래그하거나 클릭하여 업로드</div>
+                  <div class="text-xs text-gray-400 mt-1">파일 분석 후 정보를 자동으로 채워드립니다</div>
+                </div>
+                <!-- 로딩 -->
+                <div x-show="loading" x-cloak class="border-2 border-primary-300 rounded-lg p-6 text-center bg-primary-50/30">
+                  <div class="inline-block w-8 h-8 border-3 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-2" style="border-width:3px;"></div>
+                  <div class="text-sm text-primary-700 font-medium">파일 분석 중...</div>
+                  <div class="text-xs text-gray-400 mt-1">frontmatter 파싱 · 규칙 추출 · 모델 감지</div>
+                </div>
+                <!-- 업로드 완료 -->
+                <div x-show="uploaded" x-cloak>
+                  <div class="flex items-center gap-2 bg-primary-50 rounded-lg px-3 py-2">
+                    <span class="text-primary-600"></span>
+                    <span class="text-sm font-medium text-primary-700">sabangnet-cs-v2.1.md</span>
+                    <span class="text-xs text-primary-500 ml-2"> 자동 분석 완료</span>
+                    <span class="text-xs text-gray-400 ml-auto">2.4KB</span>
+                    <button @click="uploaded=false; aiName=''; aiModel=''; aiPurpose=''; aiTeam=''; aiApi=''; aiDb=''" class="text-gray-400 hover:text-red-500 text-xs ml-1">×</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 자동 채워지는 폼 -->
+              <div class="relative">
+                <div x-show="uploaded" x-cloak class="absolute -top-1 right-0 text-[10px] text-primary-500 font-medium">파일에서 자동 입력됨</div>
+                <label class="text-sm font-medium text-gray-700 block mb-1">AI 기능 이름</label>
+                <input type="text" :value="aiName" :placeholder="uploaded ? '' : 'AI 기능 이름을 입력하세요'" class="w-full border rounded-lg px-3 py-2 text-sm" :class="uploaded ? 'bg-primary-50/50 border-primary-200' : 'bg-gray-50'">
+              </div>
+              <div class="grid grid-cols-3 gap-4">
+                <div>
+                  <label class="text-sm font-medium text-gray-700 block mb-1">서비스</label>
+                  <input type="text" :value="aiTeam" :placeholder="uploaded ? '' : '팀'" class="w-full border rounded-lg px-3 py-2 text-sm" :class="uploaded ? 'bg-primary-50/50 border-primary-200' : 'bg-gray-50'">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-gray-700 block mb-1">사용 모델</label>
+                  <input type="text" :value="aiModel" :placeholder="uploaded ? '' : '모델'" class="w-full border rounded-lg px-3 py-2 text-sm" :class="uploaded ? 'bg-primary-50/50 border-primary-200' : 'bg-gray-50'">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-gray-700 block mb-1">용도</label>
+                  <input type="text" :value="aiPurpose" :placeholder="uploaded ? '' : '용도'" class="w-full border rounded-lg px-3 py-2 text-sm" :class="uploaded ? 'bg-primary-50/50 border-primary-200' : 'bg-gray-50'">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="text-sm font-medium text-gray-700 block mb-1">사용 내부 API</label>
+                  <input type="text" :value="aiApi" :placeholder="uploaded ? '' : '예: 주문 API, 환불정책 API'" class="w-full border rounded-lg px-3 py-2 text-sm" :class="uploaded ? 'bg-primary-50/50 border-primary-200' : 'bg-gray-50'">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-gray-700 block mb-1">접근 DB</label>
+                  <input type="text" :value="aiDb" :placeholder="uploaded ? '' : '예: 고객 DB, 주문 DB'" class="w-full border rounded-lg px-3 py-2 text-sm" :class="uploaded ? 'bg-primary-50/50 border-primary-200' : 'bg-gray-50'">
+                </div>
+              </div>
+
+              <!-- 파일 요약 (내용 대신) -->
+              <div x-show="uploaded" x-cloak>
+                <label class="text-sm font-medium text-gray-700 block mb-1">파일 분석 요약</label>
+                <div class="bg-gray-50 border rounded-lg p-3 text-xs text-gray-600 space-y-1.5">
+                  <div class="flex items-center gap-2"><span class="text-primary-500 font-bold">·</span> <strong>역할</strong>: 사방넷 CS 담당자 AI</div>
+                  <div class="flex items-center gap-2"><span class="text-primary-500 font-bold">·</span> <strong>주요 규칙</strong>: 환불 정책 DB 대조, 개인정보 노출 금지, AI 표시 필수</div>
+                  <div class="flex items-center gap-2"><span class="text-primary-500 font-bold">·</span> <strong>사용 API</strong>: 사방넷 주문 API, 환불정책 API</div>
+                  <div class="flex items-center gap-2"><span class="text-primary-500 font-bold">·</span> <strong>접근 DB</strong>: 고객문의 DB, 주문 DB</div>
+                  <div class="flex items-center gap-2"><span class="text-primary-500 font-bold">·</span> <strong>감지된 Hook 후보</strong>: 2건 (환불 DB 대조, PII 마스킹)</div>
+                </div>
+              </div>
+
+              <!-- 규제 미통과 시 등록 불가 -->
+              <div x-show="uploaded && registerType==='product'" x-cloak class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                <div class="text-sm font-bold text-red-600 mb-1">규제 미통과</div>
+                <div class="text-xs text-gray-600">인공지능 기본법 투명성 표시 · 전자상거래법 정확성 검증 미충족</div>
+                <div class="text-xs text-primary-600 mt-2 font-medium">→ Hook 전환을 적용하면 규제 통과가 가능합니다</div>
+              </div>
+              <button x-show="!uploaded || registerType==='work'" @click="
+                showRegisterSuccess=true;
+                if(registerType==='work' && aiName) {
+                  workSkills.push({name:aiName, team:aiTeam||currentTeam, author:'나', type:'호스팅', uses:0, lastUsed:'-', lastReview:'2026-06-13', status:'활성'});
+                }
+              " class="w-full bg-primary-500 hover:bg-primary-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium">정보 저장</button>
+              <div x-show="showRegisterSuccess" x-cloak class="mt-3 bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <div class="text-green-600 text-2xl mb-1"></div>
+                <div class="text-sm font-bold text-green-700">정보 보완 완료</div>
+                <div class="text-xs text-gray-600 mt-1">초기 신뢰도 점수: <strong class="text-primary-600">72점</strong></div>
+                <div class="text-[10px] text-gray-400 mt-1">Hook 전환 적용 시 +15점 예상</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 오른쪽: 체크 결과 (업로드 후 표시) -->
+        <div class="w-96" @dblclick="showTip($event, tips.reviewDetail)">
+          <!-- 업로드 전 -->
+          <div x-show="!uploaded" class="bg-white rounded-xl border p-5 text-center py-16">
+            <div class="text-gray-300 text-4xl mb-3"></div>
+            <div class="text-sm text-gray-400">파일을 업로드하면<br>자동으로 체크 결과가 표시됩니다</div>
+          </div>
+          <!-- 체크 결과 -->
+          <div x-show="uploaded" x-cloak>
+          <div class="bg-white rounded-xl border p-5 mb-4">
+            <div class="text-sm font-bold mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              체크 결과
+            </div>
+            <div class="space-y-2.5">
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs"></span>
+                <span>필수 정보 완성도</span>
+                <span class="ml-auto text-green-600 text-xs font-medium">완료</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs"></span>
+                <span>중복 스킬 검사</span>
+                <span class="ml-auto text-green-600 text-xs font-medium">중복 없음</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xs font-bold">!</span>
+                <span>규제 통과 확인</span>
+                <span class="ml-auto text-red-500 text-xs font-medium">2건 미통과</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">!</span>
+                <span>Hook 전환 권장</span>
+                <span class="ml-auto text-orange-500 text-xs font-medium">2건 발견</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs"></span>
+                <span>모델 종속성</span>
+                <span class="ml-auto text-green-600 text-xs font-medium">없음</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs"></span>
+                <span>데이터 접근 범위</span>
+                <span class="ml-auto text-green-600 text-xs font-medium">격리 확인</span>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border p-5 mb-4">
+            <div class="text-sm font-bold mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
+              품질 분석
+            </div>
+            <div class="space-y-2.5">
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">!</span>
+                <span>프롬프트 길이</span>
+                <span class="ml-auto text-orange-500 text-xs font-medium">1,847 토큰 (권장 1,200 이하)</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">!</span>
+                <span>역할 분리</span>
+                <span class="ml-auto text-orange-500 text-xs font-medium">CS + 환불 + 배송 → 분리 권장</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs"></span>
+                <span>KB 용어 정합성</span>
+                <span class="ml-auto text-green-600 text-xs font-medium">"전환율" KB 정의와 일치</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs"></span>
+                <span>응답 범위 제한</span>
+                <span class="ml-auto text-green-600 text-xs font-medium">설정됨</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs"></span>
+                <span>에러 핸들링</span>
+                <span class="ml-auto text-green-600 text-xs font-medium">"모르겠으면 상담원 연결" 포함</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 규제 안내 -->
+          <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+            <div class="text-sm font-bold text-red-700 mb-2">규제 통과 미충족 항목</div>
+            <div class="text-xs text-gray-700 space-y-1.5">
+              <div class="flex items-start gap-2">
+                <span class="text-red-500 mt-0.5 font-bold"></span>
+                <span><b>인공지능 기본법</b>: "AI가 생성했습니다" 투명성 표시 미적용 / "AI와 대화 중" 고지 미적용</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-red-500 mt-0.5 font-bold"></span>
+                <span><b>전자상거래법</b>: CS 답변 정확성 검증 체계 미구축</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hook 전환 제안 -->
+          <div class="bg-orange-50 border border-orange-200 rounded-xl p-4" @dblclick="showTip($event, tips.hook)">
+            <div class="text-sm font-bold text-orange-700 mb-2">시스템 강제 전환 권장</div>
+            <div class="text-xs text-gray-700 space-y-2">
+              <div class="flex items-start gap-2">
+                <span class="text-orange-500 mt-0.5">→</span>
+                <div>
+                  <div class="font-medium">"환불 정책 DB 대조"</div>
+                  <div class="text-gray-500 mt-0.5">지침 → Hook 전환 시 100% 강제 가능</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-orange-500 mt-0.5">→</span>
+                <div>
+                  <div class="font-medium">"개인정보 노출 금지"</div>
+                  <div class="text-gray-500 mt-0.5">지침 → Hook 전환 시 PII 자동 마스킹</div>
+                </div>
+              </div>
+            </div>
+            <button class="mt-3 w-full text-xs font-medium text-orange-600 border border-orange-300 rounded-lg py-1.5 hover:bg-orange-100 transition-colors">Hook으로 전환 적용</button>
+          </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+    </template>
+
+    
+<template x-if="showAuditDetail">
+      <div class="fixed inset-0 z-30 flex items-center justify-center" @click="showAuditDetail=null">
+        <div class="absolute inset-0 bg-black/30"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-[600px] max-h-[80vh] overflow-auto" @click.stop>
+          <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-bold text-gray-400" x-text="showAuditDetail.id"></span>
+              <span class="font-bold text-lg">검수 상세</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :class="showAuditDetail.type==='자동' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'" x-text="showAuditDetail.type"></span>
+            </div>
+            <button @click="showAuditDetail=null" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+          </div>
+          <div class="p-6 space-y-4">
+            <!-- 기본 정보 -->
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">대상 AI</div><div class="font-medium mt-0.5" x-text="showAuditDetail.ai"></div></div>
+              <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">일시</div><div class="font-medium mt-0.5" x-text="showAuditDetail.date"></div></div>
+              <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">트리거</div><div class="font-medium mt-0.5" x-text="showAuditDetail.trigger"></div></div>
+              <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">담당자</div><div class="font-medium mt-0.5" x-text="showAuditDetail.by"></div></div>
+            </div>
+
+            <!-- 종합 결과 -->
+            <div class="rounded-lg p-4" :class="showAuditDetail.resultColor==='green' ? 'bg-green-50 border border-green-200' : showAuditDetail.resultColor==='red' ? 'bg-red-50 border border-red-200' : 'bg-orange-50 border border-orange-200'">
+              <div class="text-sm font-bold" :class="showAuditDetail.resultColor==='green' ? 'text-green-700' : showAuditDetail.resultColor==='red' ? 'text-red-700' : 'text-orange-700'">
+                종합 결과: <span x-text="showAuditDetail.result"></span>
+              </div>
+            </div>
+
+            <!-- 항목별 결과 -->
+            <div>
+              <div class="text-sm font-bold mb-3">검수 항목별 결과</div>
+              <div class="space-y-2">
+                <template x-for="item in showAuditDetail.items" :key="item.name+item.detail">
+                  <div class="border rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-sm font-medium" x-text="item.name"></span>
+                      <span class="text-xs font-bold px-2 py-0.5 rounded-full" :class="item.color==='green' ? 'bg-green-100 text-green-600' : item.color==='red' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'" x-text="item.status"></span>
+                    </div>
+                    <div class="text-xs text-gray-500" x-text="item.detail"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </template>
+
+    
+<template x-if="showManualAudit">
+      <div class="fixed inset-0 z-30 flex items-center justify-center" @click="showManualAudit=null">
+        <div class="absolute inset-0 bg-black/30"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-[550px] max-h-[80vh] overflow-auto" @click.stop>
+          <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-lg">수동 검수</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :class="showManualAudit.type==='critical' ? 'bg-red-100 text-red-600' : 'bg-primary-100 text-primary-600'" x-text="showManualAudit.type==='critical' ? 'Critical' : 'Review'"></span>
+            </div>
+            <button @click="showManualAudit=null" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+          </div>
+          <div class="p-6" x-show="!manualAuditDone" x-data="{ auditRunning:false }">
+            <div class="space-y-4">
+              <div class="text-sm font-bold">검수 대상</div>
+              <div class="bg-gray-50 rounded-lg p-4">
+                <div class="font-bold text-base" x-text="showManualAudit.name"></div>
+                <div class="text-xs text-gray-500 mt-1" x-text="showManualAudit.type==='critical' ? '조건 위반' : '변경 감지'"></div>
+              </div>
+
+              <div class="text-sm font-bold">검수 항목</div>
+              <div class="space-y-1.5 text-sm text-gray-600">
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded"><span class="text-primary-500"></span> 규제 통과 재확인</div>
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded"><span class="text-primary-500"></span> 가드레일 정상 작동 테스트</div>
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded"><span class="text-primary-500"></span> 출력 샘플 10건 스팟체크 (실제 답변 vs 정책 DB 대조)</div>
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded"><span class="text-primary-500"></span> KB 용어 정합성</div>
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded"><span class="text-primary-500"></span> 데이터 접근 범위</div>
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded"><span class="text-primary-500"></span> 프롬프트 품질 (길이, 역할 분리)</div>
+              </div>
+
+              <button x-show="!auditRunning" @click="auditRunning=true; setTimeout(()=>{manualAuditDone=true}, 2500)" class="w-full bg-primary-500 hover:bg-primary-600 text-white px-4 py-3 rounded-lg text-sm font-medium">검수 실행</button>
+              <div x-show="auditRunning" class="w-full bg-primary-100 text-primary-700 px-4 py-3 rounded-lg text-sm font-medium text-center flex items-center justify-center gap-2">
+                <span class="inline-block w-4 h-4 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin"></span>
+                검수 진행 중...
+              </div>
+            </div>
+          </div>
+          <!-- 검수 완료 -->
+          <div x-show="manualAuditDone" class="p-6 text-center py-12">
+            <div class="text-green-500 text-4xl mb-3"></div>
+            <div class="text-lg font-bold text-gray-900 mb-1">검수 완료</div>
+            <div class="text-sm text-gray-500 mb-2">검수 결과가 이력에 기록되었습니다</div>
+            <div class="text-xs text-green-600 mb-1">최종 검수일이 오늘 날짜로 업데이트되었습니다</div>
+            <div class="text-xs text-gray-400">검수자: 박동환 (AX기획) · <span x-text="new Date().toLocaleString('ko-KR')"></span></div>
+            <button @click="showManualAudit=null" class="mt-4 bg-primary-500 text-white px-6 py-2 rounded-lg text-sm font-medium">닫기</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+
+</div>
+
+<!-- 상세 모달 -->
+<template x-if="showDetail && selectedAI">
+  <div class="fixed inset-0 flex items-center justify-center" @click="showDetail=false" style="z-index:45;">
+    <div class="absolute inset-0 bg-black/30"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-[720px] max-h-[85vh] overflow-auto" @click.stop @dblclick="showTip($event, tips.detail)" style="z-index:46;">
+      <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl">
+        <div class="flex items-center gap-3">
+          <span class="font-bold text-lg" x-text="selectedAI.name"></span>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+            :class="selectedAI.risk==='고위험' ? 'bg-red-100 text-red-600' : selectedAI.risk==='중위험' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'"
+            x-text="selectedAI.risk"></span>
+        </div>
+        <button @click="showDetail=false" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+      </div>
+      <div class="p-6 space-y-5">
+        <!-- 기본 정보 -->
+        <div>
+          <div class="text-sm font-bold mb-2">기본 정보</div>
+          <div class="grid grid-cols-4 gap-3 text-sm">
+            <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">모델</div><div class="font-medium mt-0.5" x-text="selectedAI.model"></div></div>
+            <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">서비스</div><div class="font-medium mt-0.5" x-text="selectedAI.team"></div></div>
+            <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">담당자</div><div class="font-medium mt-0.5" x-text="selectedAI.owner"></div></div>
+            <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">등록일</div><div class="font-medium mt-0.5" x-text="selectedAI.created"></div></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-sm mt-3">
+            <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">사용 API</div><div class="font-medium mt-0.5" x-text="selectedAI.api || '-'"></div></div>
+            <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">접근 DB</div><div class="font-medium mt-0.5" x-text="selectedAI.db || '-'"></div></div>
+          </div>
+        </div>
+        <!-- 가드레일 -->
+        <div>
+          <div class="text-sm font-bold mb-2">가드레일</div>
+          <div class="space-y-2">
+            <template x-for="g in selectedAI.guardrails" :key="g.name">
+              <div class="flex items-center justify-between border rounded-lg p-3">
+                <div>
+                  <div class="text-sm font-medium" x-text="g.name"></div>
+                  <div class="text-xs text-gray-500 mt-0.5" x-text="g.desc"></div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs" :class="g.type==='Hook' ? 'text-primary-600 font-bold' : 'text-gray-400'" x-text="g.type"></span>
+                  <div class="w-8 h-5 rounded-full" :class="g.on ? 'bg-green-400' : 'bg-gray-300'">
+                    <div class="w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform" :class="g.on ? 'translate-x-3.5' : 'translate-x-0.5'"></div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+        <!-- 규제 통과 -->
+        <div>
+          <div class="text-sm font-bold mb-2">규제 통과</div>
+          <div class="space-y-3">
+            <template x-for="reg in (selectedAI.regGroups || [])" :key="reg.name">
+              <div class="border rounded-lg p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm font-bold" x-text="reg.name"></span>
+                  <span class="text-xs font-bold px-2 py-0.5 rounded-full" :class="reg.passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'" x-text="reg.passed ? '통과' : '미통과'"></span>
+                </div>
+                <div class="space-y-1">
+                  <template x-for="item in reg.checks" :key="item.label">
+                    <div class="flex items-center gap-2 text-xs pl-1">
+                      <span class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold" :class="item.ok ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'" x-text="item.ok ? 'v' : 'x'"></span>
+                      <span class="text-gray-600" x-text="item.label"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+        <!-- 변경 이력 -->
+        <div>
+          <div class="text-sm font-bold mb-2">변경 이력</div>
+          <div class="space-y-2">
+            <template x-for="h in selectedAI.history" :key="h.date+h.action">
+              <div class="flex items-start gap-3 text-sm border-l-2 border-gray-200 pl-3 py-1">
+                <div class="text-xs text-gray-400 w-20 flex-shrink-0" x-text="h.date"></div>
+                <div>
+                  <div class="font-medium" x-text="h.action"></div>
+                  <div class="text-xs text-gray-500" x-text="h.by"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+function app() {
+  return {
+    demoMode: false,
+    activeTip: null,
+    tipPos: { x: 0, y: 0 },
+    currentTab: 'inventory',
+    registerType: 'product',
+    showRegisterModal: false,
+    showRegisterSuccess: false,
+    showAuditDetail: null,
+    showManualAudit: null,
+    manualAuditDone: false,
+    autoAuditRunning: false,
+    autoAuditDone: false,
+    auditRecords: [
+      { id:'A-009', date:'2026-06-13 09:00', ai:'사방넷 상품 정보고시', type:'자동', trigger:'정기 검수 (주간)', result:'미통과', resultColor:'red', by:'시스템',
+        items:[
+          {name:'규제 통과', status:'미통과', detail:'AI기본법 투명성 표시 미적용', color:'red'},
+          {name:'가드레일', status:'경고', detail:'AI 생성 표시 Hook 미전환', color:'orange'},
+          {name:'프롬프트 품질', status:'통과', detail:'이상 없음', color:'green'},
+        ]},
+      { id:'A-008', date:'2026-06-13 09:00', ai:'다우오피스 AI 챗봇', type:'자동', trigger:'정기 검수 (주간)', result:'미통과', resultColor:'red', by:'시스템',
+        items:[
+          {name:'규제 통과', status:'미통과', detail:'AI 대화 고지 미적용', color:'red'},
+          {name:'가드레일', status:'경고', detail:'AI 대화 고지 Hook 미전환', color:'orange'},
+          {name:'데이터 접근', status:'통과', detail:'사내 문서 DB 접근 정상', color:'green'},
+        ]},
+      { id:'A-007', date:'2026-06-13 09:00', ai:'사방넷 챗봇', type:'자동', trigger:'정기 검수 (주간)', result:'미통과', resultColor:'red', by:'시스템',
+        items:[
+          {name:'모델 변경 감지', status:'재검수 필요', detail:'Claude 4 Sonnet 업데이트 감지, 가드레일 재검증 필요', color:'orange'},
+          {name:'규제 통과', status:'통과', detail:'AI 대화 고지 정상', color:'green'},
+        ]},
+      { id:'A-006', date:'2026-06-10 14:32', ai:'사방넷 CS 자동답변', type:'수동', trigger:'가드레일 규칙 변경', result:'통과', resultColor:'green', by:'박동환 (AX기획)',
+        items:[
+          {name:'가드레일 변경 검토', status:'승인', detail:'환불 정책 DB 대조 Hook 추가. 규칙 적절성 확인', color:'green'},
+          {name:'규제 통과', status:'통과', detail:'AI기본법 투명성 표시 적용 확인', color:'green'},
+          {name:'출력 샘플 리뷰', status:'통과', detail:'환불 관련 질문 10건 스팟체크, 정확도 100%', color:'green'},
+          {name:'KB 정합성', status:'통과', detail:'"환불 정책" 용어 KB 정의와 일치', color:'green'},
+        ]},
+      { id:'A-005b', date:'2026-06-09 15:00', ai:'전체 제품 AI (10개)', type:'자동', trigger:'규제 변경 (시행령 7.21 입법예고)', result:'통과', resultColor:'green', by:'시스템',
+        items:[
+          {name:'규제 통과 재확인', status:'통과', detail:'시행령 7.21 공공조달 AI 우선고려 조항, 현재 제품에 직접 영향 없음', color:'green'},
+          {name:'투명성 표시', status:'통과', detail:'기존 투명성 표시 요구사항 변경 없음', color:'green'},
+          {name:'고영향 AI 판단', status:'통과', detail:'신규 고영향 분야 추가 없음, 기존 매핑 유지', color:'green'},
+        ]},
+      { id:'A-005', date:'2026-06-09 10:15', ai:'뿌리오 AI 문자', type:'수동', trigger:'가드레일 규칙 변경', result:'통과', resultColor:'green', by:'박동환 (AX기획)',
+        items:[
+          {name:'가드레일 변경 검토', status:'승인', detail:'과장 표현 감지 패턴 5개 추가: "100% 보장", "무조건", "최저가", "1위", "완벽한"', color:'green'},
+          {name:'규제 통과', status:'통과', detail:'표시광고법 과장 광고 방지 규칙 충족', color:'green'},
+          {name:'출력 샘플 리뷰', status:'통과', detail:'마케팅 문구 생성 20건, 과장 표현 0건', color:'green'},
+        ]},
+      { id:'A-004', date:'2026-06-08 09:00', ai:'사방넷 상품 정보고시', type:'자동', trigger:'정기 검수', result:'미통과', resultColor:'red', by:'시스템',
+        items:[
+          {name:'규제 통과', status:'미통과', detail:'AI기본법 투명성 표시: "AI가 생성했습니다" 표시 미적용', color:'red'},
+          {name:'가드레일', status:'경고', detail:'출력 AI 생성 표시 가드레일이 "지침"으로만 설정, Hook 미전환', color:'orange'},
+          {name:'프롬프트 품질', status:'통과', detail:'이상 없음', color:'green'},
+        ]},
+      { id:'A-003', date:'2026-06-05 11:45', ai:'사방넷 CS 자동답변', type:'수동', trigger:'모델 변경', result:'통과', resultColor:'green', by:'박동환 (AX기획)',
+        items:[
+          {name:'모델 변경 검증', status:'통과', detail:'Claude 3.5 → Claude 4 Sonnet 변경. 기존 가드레일 정상 작동 확인', color:'green'},
+          {name:'출력 비교 테스트', status:'통과', detail:'동일 질문 50건 대조, 품질 유지 + 응답 시간 개선', color:'green'},
+          {name:'규제 통과', status:'통과', detail:'투명성 표시 정상 작동', color:'green'},
+          {name:'Hook 작동 확인', status:'통과', detail:'PII 마스킹, 환불 DB 대조, AI 표시 3개 Hook 전부 정상', color:'green'},
+        ]},
+      { id:'A-002', date:'2026-06-01 09:00', ai:'사방넷 CS 자동답변', type:'자동', trigger:'월간 정기 검수', result:'통과', resultColor:'green', by:'시스템',
+        items:[
+          {name:'규제 통과', status:'통과', detail:'AI기본법 투명성 표시 정상', color:'green'},
+          {name:'가드레일', status:'통과', detail:'3개 Hook 정상 작동', color:'green'},
+          {name:'프롬프트 품질', status:'통과', detail:'이상 없음', color:'green'},
+        ]},
+      { id:'A-001', date:'2026-06-01 09:00', ai:'뿌리오 AI 문자', type:'자동', trigger:'월간 정기 검수', result:'통과', resultColor:'green', by:'시스템',
+        items:[
+          {name:'규제 통과', status:'통과', detail:'표시광고법 준수 확인', color:'green'},
+          {name:'가드레일', status:'통과', detail:'2개 Hook 정상 작동', color:'green'},
+        ]},
+    ],
+    showDetail: false,
+    selectedAI: null,
+    currentTeam: 'AX기획',
+    filterTeam: 'all',
+    filterRisk: 'all',
+    searchQuery: '',
+
+    get nav() {
+      if (this.currentTeam === 'AX기획') {
+        return [
+          { id:'inventory', icon:'', label:'AI 대시보드', badge:'5', tip:{ num:'1', title:'AI 대시보드', desc:'제품 AI와 업무 AI를 통합 관리합니다.<br><br>• 토글로 제품/업무 전환<br>• 모든 거버넌스의 시작점: 무엇이 있는지 파악이 먼저<br>• 현황→리스크→규제→변경이 하나의 흐름으로 연결' }},
+          { id:'audit', icon:'', label:'검수 센터', badge:'3', tip:{ num:'A', title:'AI 검수', desc:'등록된 AI를 수동/자동으로 정기 검수합니다.<br><br>• 자동: 주기적 규제 통과 재확인, 가드레일 정상 작동 체크<br>• 수동: AX기획이 직접 검토 후 승인/반려<br>• 모든 검수 이력이 기록됩니다' }},
+          { id:'_tools', icon:'', label:'도구', section:true },
+          { id:'kb', icon:'', label:'Knowledge Base', badge:'', tip:{ num:'3', title:'Knowledge Base', desc:'조직의 정의·용어·맥락을 표준화합니다.<br><br>• "전환율" 등 서비스마다 다른 정의를 통일<br>• AI 어시스턴트가 KB에 접근하여 맥락 자동 주입<br>• 대화하면서 지식이 쌓이는 구조<br><br><b>해결하는 문제:</b> ④ 맥락 부재' }},
+          { id:'library', icon:'', label:'공유 라이브러리', badge:'', tip:{ num:'4', title:'공유 라이브러리', desc:'서비스 간 AI 스킬과 아티팩트를 공유합니다.<br><br>• 다른 서비스가 만든 스킬 조회·재사용<br>• 중복 작업 방지 + 서비스 간 sync<br><br><b>해결하는 문제:</b> ③ 무분별한 생성' }},
+          { id:'gptDash', icon:'', label:'다우GPT 현황', badge:'', tip:{ num:'G', title:'다우GPT 사용 현황', desc:'전사 다우GPT 사용 현황을 모니터링합니다.<br><br>• 개인별 사용량·질문 빈도·주요 질문 주제<br>• 병목 파악: 어떤 팀이 어떤 질문에서 막히는지<br>• KB 개선 포인트 도출' }},
+        ];
+      } else {
+        return [
+          { id:'_product', icon:'', label:'제품 AI', section:true },
+          { id:'myInventory', icon:'', label:'대시보드', badge:'', tip:{ num:'T', title:'내 팀 제품 AI', desc:'내가 등록한 제품 AI를 확인합니다.<br>등록, 상태 확인, 규제 통과 결과를 볼 수 있습니다.' }},
+          { id:'_work', icon:'', label:'업무 AI', section:true },
+          { id:'myWorkAI', icon:'', label:'대시보드', badge:'', tip:{ num:'W', title:'내 팀 업무 AI', desc:'내가 호스팅 중인 업무 AI 봇을 확인합니다.' }},
+          { id:'kbChat', icon:'', label:'다우GPT', badge:'', tip:{ num:'G', title:'다우GPT', desc:'Knowledge Base 기반 AI 어시스턴트입니다.<br><br>• 사내 DB + KB에 접근하여 우리 맥락으로 대화<br>• 용어·정의가 자동으로 반영<br>• 세션은 본인만 확인 가능' }},
+          { id:'kb', icon:'', label:'Knowledge Base', badge:'', tip:null },
+          { id:'library', icon:'', label:'공유 라이브러리', badge:'', tip:null },
+        ];
+      }
+    },
+
+    tips: {
+      summary: { num:'S', title:'요약 대시보드', desc:'전체 AI 현황을 한눈에 파악합니다.<br>고위험·검수 필요·규제 미매핑 건수를 즉시 확인 가능합니다.' },
+      card: { num:'C', title:'AI 카드', desc:'각 AI의 핵심 정보가 한 줄에 표시됩니다.<br><br>• 리스크 등급 (색상으로 구분)<br>• 가드레일 적용 상태<br>• 규제 통과 상태<br>• 최종 검수일<br><br>클릭하면 상세 모달이 열립니다.' },
+      register: { num:'R', title:'새 AI 등록', desc:'Git push 시 자동 등록되거나, 수동 등록이 가능합니다.<br><br>등록 즉시 자동 검수 파이프라인이 작동하여 규제 판별·Hook 전환·중복 검사가 수행됩니다.' },
+      detail: { num:'D', title:'상세 관리', desc:'AI의 전체 거버넌스 정보를 관리합니다.<br><br>• <b>가드레일</b>: 입력/출력 검증 규칙, Hook/지침 구분, ON/OFF<br>• <b>규제 통과</b>: 적용 법률 + 준수 상태<br>• <b>변경 이력</b>: 누가, 언제, 뭘, 왜 바꿨는지' },
+      reviewDetail: { num:'V', title:'자동 검수 상세', desc:'등록된 AI를 6개 항목으로 자동 검사합니다.<br><br>1. 메타데이터 완성도<br>2. 중복 스킬 검사<br>3. 규제 통과 확인 (인공지능 기본법 포함)<br>4. Hook 전환 가능 항목<br>5. 모델 종속성<br>6. 데이터 접근 범위' },
+      hook: { num:'H', title:'Hook 전환', desc:'<b>AI가 지침을 78%만 따르기 때문에</b>, 중요한 규칙은 프롬프트 지침이 아닌 시스템(Hook)으로 강제합니다.<br><br>• 프롬프트: "환불 정책 확인해" → AI가 안 할 수 있음<br>• Hook: 출력에 "환불" 포함 시 자동 DB 대조 → 100% 강제<br><br>이것이 가드레일의 핵심 가치입니다.' },
+      kb: { num:'K', title:'용어 정의 표준화', desc:'서비스마다 다른 정의를 하나로 통일합니다.<br><br>예시: "전환율"<br>• 사방넷: 문의→구매<br>• 뿌리오: 수신→클릭<br>• 다우오피스: 체험→유료<br><br>정의가 통일되면 같은 AI를 써도 일관된 결과가 나옵니다.' },
+      library: { num:'L', title:'스킬 공유', desc:'한 팀이 만든 스킬을 다른 서비스가 재사용할 수 있습니다.<br><br>• 중복 작업 방지<br>• 우수 사례 벤치마킹<br>• 방치된 스킬 자동 감지 + 정리' },
+      workSummary: { num:'W', title:'업무 AI 현황', desc:'임직원이 등록한 AI 스킬의 전체 현황입니다.<br><br>• <b>30일+ 미사용</b>: 방치된 스킬 → 정리 또는 비활성화 대상<br>• <b>중복 의심</b>: 유사한 기능의 스킬이 여러 팀에 존재<br><br>무분별한 생성 문제를 직접 해결합니다.' },
+    },
+
+    workSkills: [
+      { name:'CS 답변 분석 봇', team:'사방넷', author:'김민수', type:'호스팅', uses:1247, lastUsed:'2026-06-12', lastReview:'2026-06-08', status:'활성' },
+      { name:'상품 데이터 정리 봇', team:'사방넷', author:'박준호', type:'호스팅', uses:892, lastUsed:'2026-06-11', lastReview:'2026-06-05', status:'활성' },
+      { name:'마케팅 문구 생성기', team:'뿌리오', author:'이하늘', type:'호스팅', uses:2340, lastUsed:'2026-06-12', lastReview:'2026-06-09', status:'활성' },
+      { name:'발송 결과 분석 봇', team:'뿌리오', author:'최유진', type:'호스팅', uses:456, lastUsed:'2026-06-10', lastReview:'2026-06-03', status:'활성' },
+      { name:'회의록 요약 봇', team:'다우오피스', author:'정수현', type:'호스팅', uses:3450, lastUsed:'2026-06-12', lastReview:'2026-06-09', status:'활성' },
+      { name:'문서 검색 어시스턴트', team:'다우오피스', author:'정수현', type:'호스팅', uses:1890, lastUsed:'2026-06-12', lastReview:'2026-06-07', status:'활성' },
+      { name:'리서치 분석 봇', team:'AX기획', author:'이지은', type:'호스팅', uses:567, lastUsed:'2026-06-11', lastReview:'2026-06-07', status:'활성' },
+      { name:'이메일 초안 작성 봇', team:'다우오피스', author:'박지현', type:'호스팅', uses:89, lastUsed:'2026-05-02', lastReview:'2026-04-20', status:'방치' },
+      { name:'FAQ 자동 생성 봇', team:'사방넷', author:'박준호', type:'호스팅', uses:12, lastUsed:'2026-03-20', lastReview:'2026-03-10', status:'방치' },
+      { name:'CS 응대 봇 (구버전)', team:'사방넷', author:'김민수', type:'호스팅', uses:3, lastUsed:'2026-02-01', lastReview:'-', status:'중복' },
+    ],
+
+    aiList: [
+      { name:'사방넷 CS 자동답변', team:'사방넷', model:'Claude 4 Sonnet', owner:'김민수', risk:'고위험', usage:'12,847', guardrail:'3/3', regulation:'완료', lastReview:'2026-06-10', needsReview:false, created:'2025-08-15', api:'사방넷 주문 API, 환불정책 API', db:'고객문의 DB, 주문 DB',
+        regGroups:[
+          {name:'인공지능 기본법', passed:true, checks:[{label:'투명성 표시 ("AI가 생성")', ok:true},{label:'AI 대화 고지', ok:true},{label:'고영향 AI 해당 여부 확인', ok:true}]},
+          {name:'전자상거래법', passed:true, checks:[{label:'CS 답변 정확성 검증 체계', ok:true},{label:'환불/교환 정책 DB 대조', ok:true}]},
+          {name:'개인정보보호법', passed:true, checks:[{label:'고객 데이터 AI 학습 미사용', ok:true},{label:'PII 마스킹 적용', ok:true}]},
+        ],
+        guardrails:[
+          {name:'입력: PII 마스킹', desc:'주민번호·카드번호 자동 감지 후 마스킹', type:'Hook', on:true},
+          {name:'출력: 환불정책 DB 대조', desc:'"환불" 포함 시 정책 DB와 자동 대조, 불일치 시 차단', type:'Hook', on:true},
+          {name:'출력: AI 생성 표시', desc:'AI기본법 투명성 표시 자동 삽입', type:'Hook', on:true},
+        ],
+        regulations:[
+          {law:'인공지능 기본법:투명성 표시', status:'준수'},
+          {law:'전자상거래법:CS 답변 정확성', status:'준수'},
+          {law:'개인정보보호법:고객 데이터 처리', status:'준수'},
+        ],
+        history:[
+          {date:'2026-06-10', action:'가드레일 규칙 업데이트: 환불 정책 DB 대조 추가', by:'AX기획 이지은'},
+          {date:'2026-06-05', action:'모델 변경: Claude 3.5 → Claude 4 Sonnet', by:'사방넷 김민수'},
+          {date:'2026-05-20', action:'규제 통과 완료, 전자상거래법 추가', by:'법무팀 박지현'},
+          {date:'2025-08-15', action:'최초 등록', by:'사방넷 김민수'},
+        ]},
+      { name:'사방넷 상품 정보고시', team:'사방넷', model:'GPT-4o', owner:'김민수', risk:'고위험', usage:'8,432', guardrail:'2/3', regulation:'1건 미통과', lastReview:'2026-06-08', needsReview:true, created:'2025-09-01', api:'사방넷 상품 API, 쇼핑몰 연동 API', db:'상품 DB, 원산지 DB',
+        regGroups:[
+          {name:'인공지능 기본법', passed:false, checks:[{label:'투명성 표시 ("AI가 생성")', ok:false},{label:'고영향 AI 해당 여부 확인', ok:true}]},
+          {name:'전자상거래법', passed:true, checks:[{label:'상품 정보 정확성', ok:true},{label:'원산지 표시 검증', ok:true}]},
+        ],
+        guardrails:[
+          {name:'입력: 원산지 데이터 검증', desc:'입력된 원산지가 실제 데이터와 일치하는지 대조', type:'Hook', on:true},
+          {name:'출력: 필수 정보 누락 감지', desc:'법정 필수 표시 항목 누락 시 경고', type:'Hook', on:true},
+          {name:'출력: AI 생성 표시', desc:'AI기본법 투명성 표시', type:'지침', on:false},
+        ],
+        regulations:[
+          {law:'인공지능 기본법:투명성 표시', status:'미준수'},
+          {law:'전자상거래법:상품 정보 정확성', status:'준수'},
+        ],
+        history:[
+          {date:'2026-06-08', action:'정기 검수: AI 생성 표시 미적용 발견', by:'AX기획'},
+          {date:'2025-09-01', action:'최초 등록', by:'사방넷 김민수'},
+        ]},
+      { name:'뿌리오 AI 문자 맞춤제안', team:'뿌리오', model:'GPT-4o', owner:'이하늘', risk:'중위험', usage:'45,210', guardrail:'2/2', regulation:'완료', lastReview:'2026-06-09', needsReview:false, created:'2025-07-20', api:'뿌리오 발송 API, 수신자 관리 API', db:'발송 이력 DB, 고객 DB',
+        regGroups:[
+          {name:'인공지능 기본법', passed:true, checks:[{label:'투명성 표시 ("AI가 생성")', ok:true}]},
+          {name:'표시광고법', passed:true, checks:[{label:'과장 광고 표현 감지', ok:true},{label:'부당 광고 방지', ok:true}]},
+        ],
+        guardrails:[
+          {name:'출력: 과장 표현 감지', desc:'"100% 보장", "무조건" 등 과장 광고 표현 자동 경고', type:'Hook', on:true},
+          {name:'출력: AI 생성 표시', desc:'AI기본법 투명성 표시', type:'Hook', on:true},
+        ],
+        regulations:[
+          {law:'인공지능 기본법:투명성 표시', status:'준수'},
+          {law:'표시광고법:과장 광고 방지', status:'준수'},
+        ],
+        history:[
+          {date:'2026-06-09', action:'가드레일 규칙 업데이트: 과장 표현 패턴 5개 추가', by:'AX기획'},
+          {date:'2025-07-20', action:'최초 등록', by:'뿌리오 이하늘'},
+        ]},
+      { name:'다우오피스 AI 챗봇', team:'다우오피스', model:'Gemini 2.0 Flash', owner:'정수현', risk:'중위험', usage:'6,890', guardrail:'1/2', regulation:'1건 미통과', lastReview:'2026-06-01', needsReview:true, created:'2025-10-10', api:'다우오피스 문서 API, 메일 API', db:'사내 문서 DB (RAG), 게시판 DB',
+        regGroups:[
+          {name:'인공지능 기본법', passed:false, checks:[{label:'투명성 표시', ok:true},{label:'AI 대화 고지 ("AI와 대화 중")', ok:false}]},
+          {name:'개인정보보호법', passed:true, checks:[{label:'사내 데이터 접근 제한', ok:true},{label:'민감 문서 카테고리 차단', ok:true}]},
+        ],
+        guardrails:[
+          {name:'입력: 민감 문서 접근 제한', desc:'임원 급여, 징계 등 민감 문서 카테고리 접근 차단', type:'Hook', on:true},
+          {name:'출력: AI 대화 고지', desc:'"AI와 대화 중" 고지', type:'지침', on:false},
+        ],
+        regulations:[
+          {law:'인공지능 기본법:AI 대화 고지', status:'미준수'},
+          {law:'개인정보보호법:사내 데이터', status:'준수'},
+        ],
+        history:[
+          {date:'2026-06-01', action:'정기 검수: AI 대화 고지 미적용 발견', by:'AX기획'},
+          {date:'2025-10-10', action:'최초 등록', by:'다우오피스 정수현'},
+        ]},
+      { name:'다우오피스 메일 AI 요약', team:'다우오피스', model:'Gemini 2.0 Flash', owner:'정수현', risk:'저위험', usage:'23,450', guardrail:'로그', regulation:'완료', lastReview:'2026-05-15', needsReview:false, created:'2025-10-10',
+        guardrails:[{name:'로그 기록', desc:'사용 로그만 기록', type:'로그', on:true}],
+        regulations:[{law:'인공지능 기본법:투명성 표시', status:'준수'}],
+        history:[{date:'2025-10-10', action:'최초 등록', by:'다우오피스 정수현'}]},
+      { name:'사방넷 카테고리 자동추천', team:'사방넷', model:'자체 모델', owner:'박준호', risk:'중위험', usage:'156,720', guardrail:'1/1', regulation:'완료', lastReview:'2026-06-05', needsReview:false, needsInfo:true, created:'2024-08-01',
+        guardrails:[{name:'출력: 매칭률 임계값', desc:'매칭 신뢰도 70% 미만 시 수동 확인 요청', type:'Hook', on:true}],
+        regulations:[{law:'해당 규제 없음', status:'준수'}],
+        history:[{date:'2024-08-01', action:'최초 등록', by:'사방넷 박준호'}]},
+      { name:'다우오피스 AI 글쓰기', team:'다우오피스', model:'Gemini 2.0 Flash', owner:'정수현', risk:'저위험', usage:'18,900', guardrail:'로그', regulation:'완료', lastReview:'2026-05-15', needsReview:false, created:'2025-10-10',
+        guardrails:[{name:'로그 기록', desc:'사용 로그만 기록', type:'로그', on:true}],
+        regulations:[{law:'인공지능 기본법:투명성 표시', status:'준수'}],
+        history:[{date:'2025-10-10', action:'최초 등록', by:'다우오피스 정수현'}]},
+      { name:'뿌리오 맞춤법 교정', team:'뿌리오', model:'GPT-4o mini', owner:'이하늘', risk:'저위험', usage:'89,100', guardrail:'로그', regulation:'완료', lastReview:'2026-05-20', needsReview:false, created:'2025-11-01',
+        guardrails:[{name:'로그 기록', desc:'사용 로그만 기록', type:'로그', on:true}],
+        regulations:[{law:'해당 규제 없음', status:'준수'}],
+        history:[{date:'2025-11-01', action:'최초 등록', by:'뿌리오 이하늘'}]},
+      { name:'사방넷 연관검색어', team:'사방넷', model:'자체 모델', owner:'박준호', risk:'저위험', usage:'201,340', guardrail:'로그', regulation:'완료', lastReview:'2026-05-10', needsReview:false, created:'2024-06-15',
+        guardrails:[{name:'로그 기록', desc:'사용 로그만 기록', type:'로그', on:true}],
+        regulations:[{law:'해당 규제 없음', status:'준수'}],
+        history:[{date:'2024-06-15', action:'최초 등록', by:'사방넷 박준호'}]},
+      { name:'사방넷 챗봇', team:'사방넷', model:'Claude 4 Sonnet', owner:'김민수', risk:'중위험', usage:'5,670', guardrail:'2/2', regulation:'완료', lastReview:'2026-06-07', needsReview:true, created:'2025-12-01',
+        guardrails:[
+          {name:'입력: 프롬프트 인젝션 감지', desc:'악의적 프롬프트 조작 시도 차단', type:'Hook', on:true},
+          {name:'출력: AI 대화 고지', desc:'"AI와 대화 중" 고지 표시', type:'Hook', on:true},
+        ],
+        regulations:[{law:'인공지능 기본법: AI 대화 고지', status:'준수'}],
+        history:[{date:'2026-06-07', action:'모델 업데이트 후 재검수', by:'AX기획'}]},
+      { name:'다우오피스 회의록 AI 요약', team:'다우오피스', model:'Gemini 2.0 Flash', owner:'정수현', risk:'저위험', usage:'34,200', guardrail:'로그', regulation:'완료', lastReview:'2026-06-09', needsReview:false, created:'2025-11-15',
+        guardrails:[{name:'로그 기록', desc:'사용 로그만 기록', type:'로그', on:true}],
+        regulations:[{law:'인공지능 기본법: 투명성 표시', status:'준수'}],
+        regGroups:[{name:'인공지능 기본법', passed:true, checks:[{label:'투명성 표시', ok:true}]}],
+        history:[{date:'2025-11-15', action:'최초 등록', by:'다우오피스 정수현'}]},
+      { name:'뿌리오 URL 단축기', team:'뿌리오', model:'자체 로직', owner:'이하늘', risk:'저위험', usage:'312,500', guardrail:'로그', regulation:'완료', lastReview:'2026-06-01', needsReview:false, created:'2025-06-01',
+        guardrails:[{name:'로그 기록', desc:'클릭 추적 로그 기록', type:'로그', on:true}],
+        regulations:[{law:'해당 규제 없음', status:'준수'}],
+        regGroups:[],
+        history:[{date:'2025-06-01', action:'최초 등록', by:'뿌리오 이하늘'}]},
+      { name:'사방넷 리뷰 감성 분석', team:'사방넷', model:'GPT-4o mini', owner:'박준호', risk:'저위험', usage:'45,800', guardrail:'로그', regulation:'완료', lastReview:'2026-05-28', needsReview:false, created:'2025-09-20',
+        guardrails:[{name:'로그 기록', desc:'분석 결과 로그 기록', type:'로그', on:true}],
+        regulations:[{law:'해당 규제 없음', status:'준수'}],
+        regGroups:[],
+        history:[{date:'2025-09-20', action:'최초 등록', by:'사방넷 박준호'}]},
+      { name:'다우오피스 첨부파일 AI 요약', team:'다우오피스', model:'Gemini 2.0 Flash', owner:'정수현', risk:'저위험', usage:'12,300', guardrail:'로그', regulation:'완료', lastReview:'2026-05-15', needsReview:false, created:'2026-01-10',
+        guardrails:[{name:'로그 기록', desc:'사용 로그만 기록', type:'로그', on:true}],
+        regulations:[{law:'인공지능 기본법: 투명성 표시', status:'준수'}],
+        regGroups:[{name:'인공지능 기본법', passed:true, checks:[{label:'투명성 표시', ok:true}]}],
+        history:[{date:'2026-01-10', action:'최초 등록', by:'다우오피스 정수현'}]},
+      { name:'뿌리오 수신자 세그먼트 추천', team:'뿌리오', model:'GPT-4o', owner:'최유진', risk:'중위험', usage:'28,900', guardrail:'1/1', regulation:'완료', lastReview:'2026-06-03', needsReview:false, created:'2025-08-10',
+        guardrails:[{name:'출력: 개인정보 포함 여부 검사', desc:'추천 결과에 개인식별정보 포함 시 경고', type:'Hook', on:true}],
+        regulations:[{law:'개인정보보호법: 고객 데이터', status:'준수'}],
+        regGroups:[{name:'개인정보보호법', passed:true, checks:[{label:'고객 데이터 AI 학습 미사용', ok:true},{label:'세그먼트 결과 익명화', ok:true}]}],
+        history:[{date:'2025-08-10', action:'최초 등록', by:'뿌리오 최유진'}]},
+    ],
+
+    kbTerms: [
+      { name:'전환율', definition:'사방넷: 문의→구매 완료 비율 / 뿌리오: 문자 수신→링크 클릭 비율 / 다우오피스: 체험판→유료 전환 비율 → 표준: 각 제품별 정의를 명시하여 사용', updated:'2026-06-11', author:'AX기획', links:['활성 사용자','KPI','매출'] },
+      { name:'활성 사용자 (AU)', definition:'최근 30일 내 1회 이상 로그인한 고유 사용자 수. 마케팅/프로덕트 동일 기준 적용', updated:'2026-06-10', author:'다우오피스', links:['전환율','리텐션','MAU'] },
+      { name:'고위험 AI', definition:'고객에게 직접 노출되며 법적 책임이 수반되는 AI 기능. 가드레일(입력+출력+승인) 필수 적용', updated:'2026-06-09', author:'AX기획', links:['가드레일','규제 통과','리스크 등급'] },
+      { name:'가드레일', definition:'AI 출력의 품질과 안전성을 보장하기 위한 자동 검증 규칙. Hook(시스템 강제)과 지침(프롬프트 기반)으로 구분', updated:'2026-06-08', author:'AX기획', links:['Hook','고위험 AI','검수'] },
+      { name:'Hook', definition:'AI 지침 중 시스템으로 100% 강제하는 규칙. 프롬프트 지침과 달리 AI가 무시할 수 없음', updated:'2026-06-07', author:'AX기획', links:['가드레일','PII 마스킹'] },
+      { name:'리스크 등급', definition:'AI 기능의 위험도를 고/중/저로 분류. 고객 대면 여부, 법적 책임, 데이터 민감도 기반', updated:'2026-06-06', author:'AX기획', links:['고위험 AI','가드레일'] },
+      { name:'KPI', definition:'핵심 성과 지표. 각 팀·제품별로 정의가 상이할 수 있으므로 KB에서 표준 정의를 관리', updated:'2026-06-05', author:'AX기획', links:['전환율','활성 사용자','매출'] },
+      { name:'매출', definition:'순매출 기준. 반품/환불 차감 후 금액. 사방넷은 GMV와 구분하여 사용', updated:'2026-06-04', author:'사방넷', links:['전환율','KPI','GMV'] },
+    ],
+
+    skills: [
+      { name:'URL 단축기', type:'서비스', team:'뿌리오', desc:'뿌리오 발송용 URL 자동 단축 + 클릭 추적', date:'2026-06-07', url:'artifacts/url-shortener.html' },
+      { name:'상품 정보고시 자동 생성', type:'서비스', team:'사방넷', desc:'상품명 입력 시 12개 쇼핑몰 정보고시 양식 자동 작성', date:'2026-06-10', url:'artifacts/cs-quality-skill.html' },
+      { name:'CS 답변 맞춤법 검사', type:'서비스', team:'사방넷', desc:'CS 답변 작성 시 맞춤법·어투 자동 교정', date:'2026-06-09', url:'artifacts/cs-quality-skill.html' },
+      { name:'마케팅 문구 A/B 생성기', type:'서비스', team:'뿌리오', desc:'하나의 메시지에서 A/B 테스트용 문구 2개 자동 생성', date:'2026-06-08', url:'artifacts/cs-quality-skill.html' },
+      { name:'회의록 요약', type:'서비스', team:'다우오피스', desc:'회의 내용을 액션 아이템 중심으로 자동 요약', date:'2026-06-11', url:'artifacts/cs-quality-skill.html' },
+      { name:'상품 카테고리 분석', type:'분석 아티팩트', team:'사방넷', desc:'12개 플랫폼별 카테고리 매핑 데이터셋', date:'2026-06-05', url:'artifacts/category-analysis.html' },
+      { name:'고객 문의 패턴 분석', type:'분석 아티팩트', team:'사방넷', desc:'2026 Q1 고객 문의 유형별 빈도 분석', date:'2026-06-03', url:'artifacts/category-analysis.html' },
+      { name:'AI 문자 A/B 테스트 결과', type:'분석 아티팩트', team:'뿌리오', desc:'AI 생성 vs 수동 작성 문자의 클릭률 비교', date:'2026-06-07', url:'artifacts/category-analysis.html' },
+      { name:'AI CS 도입 성과 리포트', type:'분석 아티팩트', team:'사방넷', desc:'CS AI 도입 후 응답 시간 40% 감소, 만족도 변화 분석', date:'2026-06-10', url:'artifacts/category-analysis.html' },
+      { name:'뿌리오 AI 문구 전환율 분석', type:'분석 아티팩트', team:'뿌리오', desc:'AI 생성 문구의 클릭률·전환율 월별 추이', date:'2026-06-09', url:'artifacts/category-analysis.html' },
+      { name:'다우오피스 AI 활용 현황 리포트', type:'분석 아티팩트', team:'다우오피스', desc:'AI 챗봇·메일 요약·문서 검색 사용량 및 만족도 조사', date:'2026-06-08', url:'artifacts/category-analysis.html' },
+    ],
+
+    get filteredAIs() {
+      return this.aiList.filter(ai => {
+        if (this.filterTeam !== 'all' && !ai.team.includes(this.filterTeam)) return false;
+        if (this.filterRisk !== 'all' && ai.risk !== this.filterRisk) return false;
+        if (this.searchQuery && !ai.name.includes(this.searchQuery)) return false;
+        return true;
+      });
+    },
+
+
+    showTipFor(elementId, tip) {
+      if (!this.demoMode || !tip) return;
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      this.showTipWithEl(el, tip);
+    },
+
+    showTip(event, tip) {
+      if (!this.demoMode || !tip) return;
+      event.stopPropagation();
+      event.preventDefault();
+      this.showTipWithEl(event.currentTarget, tip);
+    },
+
+    _highlightedEl: null,
+
+    showTipWithEl(el, tip) {
+      // 이전 하이라이트 해제
+      if (this._highlightedEl) {
+        this._highlightedEl.style.position = '';
+        this._highlightedEl.style.zIndex = '';
+        this._highlightedEl.style.borderRadius = '';
+        this._highlightedEl.style.boxShadow = '';
+      }
+      // 해당 요소를 블러 위로 올리기
+      el.style.position = 'relative';
+      el.style.zIndex = '45';
+      el.style.borderRadius = '6px';
+      el.style.boxShadow = '0 0 0 3px #00A0C0, 0 8px 32px rgba(15,23,42,0.22)';
+      this._highlightedEl = el;
+      this.activeTip = tip;
+    },
+
+    closeTip() {
+      if (this._highlightedEl) {
+        this._highlightedEl.style.position = '';
+        this._highlightedEl.style.zIndex = '';
+        this._highlightedEl.style.borderRadius = '';
+        this._highlightedEl.style.boxShadow = '';
+        this._highlightedEl = null;
+      }
+      this.activeTip = null;
+    }
+  }
+}
+
+// KB Graph
+function drawKBGraph() {
+  const canvas = document.getElementById('kbGraph');
+  if (!canvas || canvas.offsetParent === null) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // 서비스 중심 노드 (큰 원)
+  const serviceNodes = [
+    {id:'사방넷', x:180, y:200, r:36, color:'#FEE2E2', stroke:'#E5484D'},
+    {id:'뿌리오', x:420, y:180, r:36, color:'#FFF7ED', stroke:'#EF8C2C'},
+    {id:'다우오피스', x:650, y:200, r:36, color:'#ECFDF5', stroke:'#1F9D57'},
+  ];
+
+  const nodes = [
+    // 사방넷 주변
+    {id:'CS 자동답변', x:80, y:120, r:16},
+    {id:'상품 정보고시', x:100, y:290, r:16},
+    {id:'카테고리 추천', x:250, y:310, r:14},
+    {id:'사방넷 챗봇', x:280, y:110, r:14},
+    {id:'환불 정책', x:60, y:210, r:13},
+    {id:'PII 마스킹', x:70, y:340, r:13},
+    // 뿌리오 주변
+    {id:'AI 문자', x:340, y:100, r:16},
+    {id:'URL 단축', x:500, y:100, r:14},
+    {id:'과장 표현 감지', x:350, y:290, r:14},
+    {id:'발송 분석', x:500, y:280, r:13},
+    // 다우오피스 주변
+    {id:'AI 챗봇', x:560, y:120, r:16},
+    {id:'메일 요약', x:750, y:130, r:14},
+    {id:'회의록 요약', x:760, y:280, r:14},
+    {id:'AI 작성', x:680, y:320, r:13},
+    {id:'AI 대화 고지', x:560, y:310, r:13},
+    // 공통 거버넌스 (하단)
+    {id:'인공지능 기본법', x:400, y:370, r:18},
+    {id:'투명성 표시', x:280, y:380, r:14},
+    {id:'가드레일', x:530, y:370, r:16},
+    {id:'전환율', x:160, y:380, r:13},
+  ];
+
+  const edges = [
+    // 사방넷 연결
+    ['사방넷','CS 자동답변'],['사방넷','상품 정보고시'],['사방넷','카테고리 추천'],['사방넷','사방넷 챗봇'],
+    ['CS 자동답변','환불 정책'],['CS 자동답변','PII 마스킹'],['상품 정보고시','투명성 표시'],
+    // 뿌리오 연결
+    ['뿌리오','AI 문자'],['뿌리오','URL 단축'],['뿌리오','발송 분석'],
+    ['AI 문자','과장 표현 감지'],
+    // 다우오피스 연결
+    ['다우오피스','AI 챗봇'],['다우오피스','메일 요약'],['다우오피스','회의록 요약'],['다우오피스','AI 작성'],
+    ['AI 챗봇','AI 대화 고지'],
+    // 공통 거버넌스 연결
+    ['인공지능 기본법','투명성 표시'],['인공지능 기본법','AI 대화 고지'],['인공지능 기본법','가드레일'],
+    ['가드레일','PII 마스킹'],['가드레일','과장 표현 감지'],['가드레일','환불 정책'],
+    ['CS 자동답변','전환율'],
+    // 서비스 간 연결
+    ['사방넷','인공지능 기본법'],['뿌리오','인공지능 기본법'],['다우오피스','인공지능 기본법'],
+  ];
+
+  const allNodes = [...serviceNodes, ...nodes];
+
+  // 엣지 그리기
+  ctx.strokeStyle = '#D5DAE0'; ctx.lineWidth = 1;
+  edges.forEach(([a,b]) => {
+    const na = allNodes.find(n=>n.id===a), nb = allNodes.find(n=>n.id===b);
+    if(na&&nb){ctx.beginPath();ctx.moveTo(na.x,na.y);ctx.lineTo(nb.x,nb.y);ctx.stroke();}
+  });
+
+  // 서비스 노드 (큰 원) 먼저 그리기
+  serviceNodes.forEach(n => {
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI*2);
+    ctx.fillStyle = n.color; ctx.fill();
+    ctx.strokeStyle = n.stroke; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = '#1A2233';
+    ctx.font = `bold 13px 'Noto Sans KR', Pretendard, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(n.id, n.x, n.y);
+  });
+
+  // 일반 노드 그리기
+  nodes.forEach(n => {
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI*2);
+    ctx.fillStyle = '#E4F6FA'; ctx.fill();
+    ctx.strokeStyle = '#00A0C0'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#1A2233';
+    ctx.font = `${Math.max(9, n.r*0.6)}px 'Noto Sans KR', Pretendard, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(n.id, n.x, n.y);
+  });
+
+  canvas.onclick = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX-rect.left)*(W/rect.width), my = (e.clientY-rect.top)*(H/rect.height);
+    for (const n of allNodes) {
+      if (Math.hypot(mx-n.x, my-n.y) < n.r+5) {
+        const appEl = document.querySelector('[x-data="app()"]');
+        if (appEl && appEl.__x) {
+          const data = appEl.__x.$data;
+          const term = data.kbTerms.find(t => t.name === n.id);
+          data.selectedNode = term || {name:n.id, definition:'(상세 정의 준비 중)', author:'-', updated:'-', links:edges.filter(e=>e.includes(n.id)).map(e=>e[0]===n.id?e[1]:e[0])};
+        }
+        return;
+      }
+    }
+  };
+}
+setInterval(()=>{if(document.getElementById('kbGraph')?.offsetParent) drawKBGraph();}, 1000);
+</script>
+</body>
+</html>
